@@ -98,9 +98,10 @@ HOURLY_DIRECTION = {"source_cam": str, "masked_hours": int, "shared_with": many(
                                   "cells": many(opt(HOUR_CELL))})}
 HOURLY = {"dates": many(str), "hours_with_data": int, "peak_hours": many(int), "scale_max": NUM,
           "thin_below": int, "blank_below": int, "directions": keyed(opt(HOURLY_DIRECTION))}
-TRAIL = {"when": str, "what": str, "who": str, "scope": one_of("location", "cam")}
-TRAIL_CAM = dict(TRAIL, sitenumber=str)
+TRAIL = {"when": str, "what": str, "who": str, "scope": one_of("location", "site", "cam")}
+TRAIL_SITE = dict(TRAIL, sitenumber=str)        # site and cam lines name their sitenumber
 SITENUMBER = {"sitenumber": str, "sitecode": str, "name": str,
+              "street_ns": opt(str), "street_ew": opt(str),
               "qch_lookup": opt(one_of("legacycounts", "orderlocation", "not_found", "manual")),
               "header": {"sitecode": opt(str), "start_date": opt(str), "start_time": opt(str),
                          "duration_hours": opt(NUM)}}
@@ -173,8 +174,8 @@ def _check(value, schema, path: str, errors: list) -> None:
         ack = isinstance(value, dict) and value.get("code") == "over_half_masked"
         _check(value, WARNING_ACK if ack else WARNING, path, errors)
     elif schema[0] == "trail":
-        cam = isinstance(value, dict) and value.get("scope") == "cam"
-        _check(value, TRAIL_CAM if cam else TRAIL, path, errors)
+        shared = isinstance(value, dict) and value.get("scope") in ("site", "cam")
+        _check(value, TRAIL_SITE if shared else TRAIL, path, errors)
     else:                                                   # pragma: no cover - a typo above
         raise ValueError(f"unknown schema node {schema!r}")
 

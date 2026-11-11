@@ -129,7 +129,8 @@ function drawer(loc) { const s = S(), ss = sites(), mh = maskedTotal();
   for (const k of CAMS()) { hist[k] = {}; for (const d of DIRS) { const h = histOut(k, d); if (h) hist[k][d] = h; } bins[k] = allBins(k); }
   return {
     location: { id: num(loc.id), code: locCode(loc), name: RAW[ss[0]].name, name_source: 'qch', manual_name: null, qch_name: RAW[ss[0]].name,
-      sitenumbers: ss.map(x => ({ sitenumber: x, sitecode: RAW[x].sitecode, name: RAW[x].name, qch_lookup: 'legacycounts',
+      sitenumbers: ss.map(x => ({ sitenumber: x, sitecode: RAW[x].sitecode, name: RAW[x].name,
+        street_ns: RAW[x].name.split('  &  ')[0] || null, street_ew: RAW[x].name.split('  &  ')[1] || null, qch_lookup: 'legacycounts',
         header: { sitecode: RAW[x].hdr['Sitecode'], start_date: RAW[x].hdr['Start date'], start_time: RAW[x].hdr['Start time'], duration_hours: +RAW[x].hdr['Duration (hrs)'] } })),
       slices: slicesOut(loc), is_sliced: isSliced(loc), is_grouped: ss.length > 1, latitude: null, longitude: null,
       geometry_source: 'qch', nm_grouping_used: false, corners_linked: !!s.linked, window: windowOut(s.window), count_days: countDays(),

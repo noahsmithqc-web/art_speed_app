@@ -30,7 +30,7 @@ and `contract.check_drawer()` / `check_tab()` / `check_fixtures()` hold any payl
 
 | Block | Contents |
 |---|---|
-| `location` | id, code, name (`name_source` qch / manual, `manual_name`, `qch_name`), `sitenumbers[]` (sitecode, name, `qch_lookup`, the file `header`), `slices[]`, `is_sliced`, `is_grouped`, lat/long, `geometry_source`, `nm_grouping_used`, `corners_linked`, `window`, `count_days[]`, totals (`cams`, `events`, `masked_hours`) |
+| `location` | id, code, name (`name_source` qch / manual, `manual_name`, `qch_name`), `sitenumbers[]` (sitecode, name, `street_ns` / `street_ew` for the diagram labels, `qch_lookup`, the file `header`), `slices[]`, `is_sliced`, `is_grouped`, lat/long, `geometry_source`, `nm_grouping_used`, `corners_linked`, `window`, `count_days[]`, totals (`cams`, `events`, `masked_hours`) |
 | `posted_same` | per axis: is "Same both ways" ticked |
 | `directions.NB…WB` | `exists` (lane config has a lane), `include_in_report`, `posted`, `lane_config` + `lane_config_qch`, `source_cam` (cam key), `suggested` `{cam, why}`, `adjust_by`, `mask` `{low, high, is_default}`, `report` (below), `off_leg_events` (rows in a direction that is not in the report) |
 | `directions.X.report` | null unless the direction is in the report and has a source cam. `events` (rows incl. zeros), `zero`, `pct_zero`, `masked` (removed by the two speed-mask handles), `pct_masked` (of non-zero), `n`, `avg`, `p85`, `p95`, `over_posted`, `pct_over_posted`, `masked_hours` |
@@ -41,7 +41,7 @@ and `contract.check_drawer()` / `check_tab()` / `check_fixtures()` hold any payl
 | `note` | the report note |
 | `status` | as on the tab |
 | `warnings[]` | `{code, text}`; `over_half_masked` also has `cam` and `can_acknowledge` |
-| `paper_trail[]` | newest first: `when`, `what`, `who`, `scope` (location / cam; cam entries carry `sitenumber`). The page prints `what` then `when   [by who]` |
+| `paper_trail[]` | newest first: `when`, `what`, `who`, `scope` (location / site / cam; site and cam entries carry `sitenumber` and show in every location built on it). The page prints `what` then `when   [by who]` |
 
 ## Definitions (plan section 6, confirmed SP-Q12)
 
