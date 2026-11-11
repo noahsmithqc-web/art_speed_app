@@ -305,9 +305,11 @@ def create_location(conn: sqlite3.Connection, slices: list[dict], *, nm_grouping
         raise ValueError("a location needs at least one slice")
     first_site = slices[0]["sitenumber"]
     seed = load_location(conn, seed_from) if seed_from is not None else None
+    # a seed that is itself a split piece carries that piece's window: start again from the full one
+    carry = seed is not None and seed["window_source"] != db.WINDOW_SLICE
     base = ({"start_date": seed["window_start_date"], "start_time": seed["window_start_time"],
              "duration_hr": seed["window_duration_hr"], "source": seed["window_source"]}
-            if seed else default_window(conn, first_site))
+            if carry else default_window(conn, first_site))
     window = slice_window(base, slices[0])
     now = db.now_utc()
     cur = conn.execute(

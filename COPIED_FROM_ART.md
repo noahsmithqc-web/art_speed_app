@@ -24,6 +24,6 @@ Nothing in `claude_app` was changed to make these copies. Source commit: `claude
 | `art_speed/config.py` | `art_app/config.py` | Adapted | The time limits and path limit only, plus the names of A.R.T.'s settings the tool reads |
 | `art_speed/storage/db.py` | `art_app/near_miss/db.py` | Adapted | The open / create / check / upgrade / transaction pattern; the schema is the speed tool's own |
 | `tests/fakes/qch.py` | `tests/fakes/qch.py` (`FakeQchDb`, `tm_site`, `tube_site`) | Adapted | Only the four tables the site lookup reads |
+| `art_speed/api.py`, `art_speed/edits.py` | `art_app/reporting/routes.py`, `art_app/reporting/edits.py` | Pattern only | No code copied. Same split: thin routes over an edits module, every save in one transaction with its paper-trail line, the drawer read again and returned. Different on purpose: REST verbs and HTTP status codes for refusals (see the top of `api.py`) |
 
-Later steps add their own rows to this table (SP-4: the router pattern; SP-6: lane diagram JS,
-drawer CSS, build script).
+Later steps add their own rows to this table (SP-6: lane diagram JS, drawer CSS, build script).

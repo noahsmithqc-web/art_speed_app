@@ -30,6 +30,12 @@ def build_parser() -> argparse.ArgumentParser:
     d.add_argument("--number", help="six-digit project number (with --csv: any; with --project: when not an A.R.T. folder)")
     d.add_argument("--qch", action="store_true", help="with --csv: look the sitenumbers up in QC Hub")
     d.add_argument("--js", action="store_true", help="also write <out>.js (window.SPEED_FIXTURES = ...) for the mockup opened from disk")
+    v = sub.add_parser("serve", help="run the API on its own on 127.0.0.1 (development; the shell is SP-6)")
+    v.add_argument("--project", required=True, metavar="FOLDER", help="project folder")
+    v.add_argument("--number", help="six-digit project number, when the folder is not an A.R.T. project")
+    v.add_argument("--port", type=int, default=8766)
+    v.add_argument("--mockup", metavar="FOLDER", help="the design repo's 'ui mockup' folder: serves the "
+                                                      "fixture-driven mockup at /mockup/ with live data (read-only)")
     q = sub.add_parser("qch-site", help="show what QC Hub knows about one or more sitenumbers")
     q.add_argument("sitenumbers", nargs="+", type=int)
     return parser
@@ -142,6 +148,24 @@ def cmd_dump(args) -> int:
         return 1
 
 
+def cmd_serve(args) -> int:
+    """SP-4: the API under uvicorn, for trying it before the shell exists."""
+    import uvicorn
+
+    from art_speed import project, server
+    try:
+        proj = project.open_folder(args.project, args.number)
+    except project.ProjectError as exc:
+        print(exc)
+        return 1
+    print(f"speed API for project {proj.number} at http://{server.HOST}:{args.port}/speed/locations")
+    if args.mockup:
+        print(f"mockup with live data at http://{server.HOST}:{args.port}/mockup/")
+    print("Ctrl+C to stop.")
+    uvicorn.run(server.create_app(proj, args.mockup), host=server.HOST, port=args.port, log_level="warning")
+    return 0
+
+
 def cmd_qch_site(args) -> int:
     """SP-1: the QC Hub lookup the import runs, on its own - nothing is stored."""
     from art_speed.qch import site
@@ -165,6 +189,8 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.command in ("import", "scan"):
         return cmd_import(args, dry_run=args.command == "scan")
+    if args.command == "serve":
+        return cmd_serve(args)
     if args.command == "dump":
         return cmd_dump(args)
     if args.command == "qch-site":
