@@ -43,7 +43,7 @@ function suggestP(dir) { if (!cornersOkP()) return null;
   const cands = withRows.filter(k => !deadP(k) && rawStats(k, dir).nz > 0).map(k => { const st = rawStats(k, dir), r = role(k, dir);
     return { k, pz: st.pz, r: r === 'Primary' ? 0 : r === 'Secondary' ? 1 : 2 }; });
   if (!cands.length) return null;
-  cands.sort((a, b) => a.r - b.r || a.pz - b.pz || (a.k < b.k ? -1 : 1));
+  cands.sort((a, b) => a.r - b.r || a.pz - b.pz || CAMS().indexOf(a.k) - CAMS().indexOf(b.k));
   const b = cands[0], n = cands.filter(x => x.r === b.r).length;
   const why = b.r === 0 ? 'primary corner' : b.r === 1 ? 'no primary · secondary corner' : 'no on-axis cam · lowest % zero';
   return { cam: b.k, why: why + (n > 1 && b.r < 2 ? ' · lowest % zero of ' + n : '') + (cands.length < withRows.length ? ' · dead cam skipped' : '') }; }

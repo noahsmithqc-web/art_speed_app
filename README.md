@@ -28,13 +28,19 @@ py -3.13 -m venv .venv
 | Tool version | `.venv/Scripts/python.exe -m art_speed version` |
 | Read a folder of speed CSVs and report, writing nothing | `.venv/Scripts/python.exe -m art_speed scan <csv folder>` |
 | Import a folder into a project | `.venv/Scripts/python.exe -m art_speed import <csv folder> --project <project folder> [--number 174083]` |
+| Engine output for a folder of exports, as the mockup's JSON | `.venv/Scripts/python.exe -m art_speed dump out.json --csv <csv folder> --js` |
+| The same for a project that already has speed data | `.venv/Scripts/python.exe -m art_speed dump out.json --project <project folder> --js` |
 | What QC Hub knows about a sitenumber (stores nothing) | `.venv/Scripts/python.exe -m art_speed qch-site 17408304 17408305` |
 
 `--project` takes an A.R.T. project folder as is; any other folder needs `--number`. If a file's
 name and header give different sitenumbers the import stops and asks: re-run with `--use name`
 or `--use header`. `--no-qch` skips the QC Hub lookup.
 
-More commands are added as the build steps land (SP-3 engine dump, SP-4 server, SP-5 report).
+`dump` writes the contract JSON (and, with `--js`, the `.js` wrapper the mockup needs when opened
+from disk). To try the mockup on another project: dump its exports, then open
+`ui mockup\speed_tab_mock_v15_fixtures.html` and use "Load fixtures JSON…".
+
+More commands are added as the build steps land (SP-4 server, SP-5 report).
 
 ## Layout
 
@@ -50,6 +56,10 @@ More commands are added as the build steps land (SP-3 engine dump, SP-4 server, 
 | `art_speed/importer/parse.py` | The strict Datalens speed CSV parser, raw and post-macro forms (SP-2) |
 | `art_speed/importer/scan.py`, `run.py` | Folder scan, checks, delete-and-replace import |
 | `art_speed/importer/nm_hint.py` | Reads `nm_######.db` read-only, once, for the grouping hint |
+| `art_speed/engine.py` | The stats: pure functions over a filtered row set, no database (SP-3) |
+| `art_speed/payload.py` | Builds the contract's drawer and tab payloads from plain data; the status, warning and suggestion rules |
+| `art_speed/loader.py` | Database → engine → payloads |
+| `art_speed/parity.py`, `docs/PARITY.md` | The delivered workbooks as parity targets and the documented deviations |
 | `art_speed/qch/` | QC Hub connection, login (A.R.T.'s, read-only) and the per-sitenumber lookup |
 | `art_speed/project.py` | Recognises an A.R.T. project folder (read-only) or takes a typed project number |
 | `COPIED_FROM_ART.md` | Every file copied or adapted from `claude_app`, to be dropped at the merge |

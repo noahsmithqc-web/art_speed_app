@@ -22,6 +22,14 @@ def build_parser() -> argparse.ArgumentParser:
         i.add_argument("--use", choices=("name", "header"),
                        help="which sitenumber to use for every file whose name and header disagree")
         i.add_argument("--no-qch", action="store_true", help="skip the QC Hub lookup")
+    d = sub.add_parser("dump", help="write the contract JSON (the mockup viewer's speed_fixtures.json shape)")
+    d.add_argument("out", help="the .json file to write")
+    src = d.add_mutually_exclusive_group(required=True)
+    src.add_argument("--csv", metavar="FOLDER", help="a folder of speed CSVs: imported into a temporary database")
+    src.add_argument("--project", metavar="FOLDER", help="a project folder that already has speed data")
+    d.add_argument("--number", help="six-digit project number (with --csv: any; with --project: when not an A.R.T. folder)")
+    d.add_argument("--qch", action="store_true", help="with --csv: look the sitenumbers up in QC Hub")
+    d.add_argument("--js", action="store_true", help="also write <out>.js (window.SPEED_FIXTURES = ...) for the mockup opened from disk")
     q = sub.add_parser("qch-site", help="show what QC Hub knows about one or more sitenumbers")
     q.add_argument("sitenumbers", nargs="+", type=int)
     return parser
@@ -77,6 +85,63 @@ def cmd_import(args, dry_run: bool) -> int:
     return 0 if report.status in (run.IMPORTED, run.SCANNED) else 1
 
 
+def cmd_dump(args) -> int:
+    """SP-3: the engine's output for a folder of exports or an existing project, as the SP-0 JSON.
+    Drop the file beside the mockup viewer (or load it with its "Load fixtures JSON" button)."""
+    import json
+    import tempfile
+    from pathlib import Path
+
+    from art_speed import contract, loader, project
+    from art_speed.importer import run, scan
+    from art_speed.storage import db
+
+    def write(proj) -> int:
+        try:
+            conn = db.open_db(proj.folder, proj.number)
+        except db.SpeedDbError as exc:
+            print(exc)
+            return 1
+        try:
+            data = loader.fixtures(conn, proj)
+        finally:
+            conn.close()
+        problems = contract.check_fixtures(data)
+        if problems:                                        # never expected: the engine builds the contract
+            print(f"the dump does not match the contract ({len(problems)} problems): {problems[:3]}")
+            return 1
+        text = json.dumps(data, ensure_ascii=False, separators=(",", ":"))
+        out = Path(args.out)
+        out.write_text(text, encoding="utf-8", newline="\n")
+        print(f"wrote {out} ({len(text) // 1024:,} KB, {len(data['locations'])} locations)")
+        if args.js:
+            js = out.with_suffix(".js")
+            js.write_text("window.SPEED_FIXTURES=" + text + ";\n", encoding="utf-8", newline="\n")
+            print(f"wrote {js}")
+        for row in data["tab"]["rows"]:
+            print(f"  {row['code']:<10} {row['status']['label']:<12} {row['events']:>8,} events  "
+                  f"{'; '.join(row['warnings'])}")
+        return 0
+
+    try:
+        if args.project:
+            return write(project.open_folder(args.project, args.number))
+        with tempfile.TemporaryDirectory(prefix="speed_dump_") as tmp:
+            proj = project.open_folder(tmp, args.number or "000000")
+            found = scan.scan_folder(args.csv)
+            report = run.import_folder(proj, args.csv, use_qch=args.qch,
+                                       choices={d["file"]: scan.USE_NAME for d in found.disagreements})
+            if report.status != run.IMPORTED:
+                _print_report(report)
+                return 1
+            for f in report.refused_files:
+                print(f"REFUSED  {f['error']}")
+            return write(proj)
+    except (project.ProjectError, scan.FolderError) as exc:
+        print(exc)
+        return 1
+
+
 def cmd_qch_site(args) -> int:
     """SP-1: the QC Hub lookup the import runs, on its own - nothing is stored."""
     from art_speed.qch import site
@@ -100,6 +165,8 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.command in ("import", "scan"):
         return cmd_import(args, dry_run=args.command == "scan")
+    if args.command == "dump":
+        return cmd_dump(args)
     if args.command == "qch-site":
         return cmd_qch_site(args)
     parser.print_help()
