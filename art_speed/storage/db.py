@@ -177,7 +177,7 @@ CREATE TABLE speed_event (                       -- SP-Q4: raw rows, the finest 
     "CREATE INDEX speed_event_by_cam ON speed_event (sitenumber, cam, direction, date, time)",
     f"""
 CREATE TABLE speed_location (
-    location_id         INTEGER PRIMARY KEY,
+    location_id         INTEGER PRIMARY KEY AUTOINCREMENT,   -- never reused: a deleted location's id stays dead
     name_source         TEXT    NOT NULL DEFAULT '{NAME_QCH}' CHECK (name_source IN {_in(NAME_SOURCES)}),
     manual_name         TEXT,
     note                TEXT    NOT NULL DEFAULT '',

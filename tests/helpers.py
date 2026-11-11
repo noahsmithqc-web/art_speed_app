@@ -46,3 +46,39 @@ def benning() -> qch_site.Site:
         lane_configs={"NB": "6200000", "SB": "2300000", "EB": "0000000", "WB": "7000000"},
         control_type="TWSC", stop_controlled="EW", latitude=38.8884457, longitude=-76.9369868,
         count_date="2026-02-24", start_time="06:00:00", duration_hr=13.0)
+
+
+# ------------------------------------------------------------------ Datalens speed CSVs on disk
+
+def csv_text(sitenumber, rows, *, start_date="2026-02-24", start_time="06:00 AM", duration="13.00",
+             header_sitecode=None) -> str:
+    """A raw-form export. rows: (date, 'hh:mm:ss AM', 'NB Thru', class, speed, track id)."""
+    lines = [f"Sitecode:,{header_sitecode if header_sitecode is not None else sitenumber}",
+             f"Start date:,{start_date}", f"Start time:,{start_time}", f"Duration (hrs):,{duration}", "",
+             "Date,Time,Direction,Class,Speed (In MPH),Track ID"]
+    lines += [",".join(str(v) for v in r) for r in rows]
+    return "\n".join(lines) + "\n"
+
+
+def post_macro_text(sitenumber, cam, rows, *, start_date="10/6/2026", start_time="12:00:00 AM",
+                    duration="0") -> str:
+    """The same file after the QA macro and an Excel save: padded to seven columns, US dates,
+    times without a leading zero, the cam number in column G."""
+    lines = [f"Sitecode:,{sitenumber},,,,,", f"Start date:,{start_date},,,,,",
+             f"Start time:,{start_time},,,,,", f"Duration (hrs):,{duration},,,,,", ",,,,,,",
+             "Date,Time,Direction,Class,Speed (In MPH),Track ID,"]
+    lines += [",".join(str(v) for v in r) + f",{cam}" for r in rows]
+    return "\r\n".join(lines) + "\r\n"
+
+
+def speed_rows(direction, speeds, *, date="2026-02-24", hour=6, first_track=1):
+    """Raw-form rows, one a second from hh:00:00."""
+    h12, ampm = (hour % 12 or 12), ("AM" if hour < 12 else "PM")
+    return [(date, f"{h12:02d}:{i // 60:02d}:{i % 60:02d} {ampm}", f"{direction} Thru",
+             "cl2_passenger_car", s, first_track + i) for i, s in enumerate(speeds)]
+
+
+def write_csv(folder, sitenumber, cam, rows, **header):
+    path = folder / f"{sitenumber}_cam-{cam}_speed.csv"
+    path.write_text(csv_text(sitenumber, rows, **header), encoding="utf-8", newline="")
+    return path

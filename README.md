@@ -26,10 +26,15 @@ py -3.13 -m venv .venv
 |---|---|
 | Run the automated tests | `.venv/Scripts/python.exe -m pytest` |
 | Tool version | `.venv/Scripts/python.exe -m art_speed version` |
+| Read a folder of speed CSVs and report, writing nothing | `.venv/Scripts/python.exe -m art_speed scan <csv folder>` |
+| Import a folder into a project | `.venv/Scripts/python.exe -m art_speed import <csv folder> --project <project folder> [--number 174083]` |
 | What QC Hub knows about a sitenumber (stores nothing) | `.venv/Scripts/python.exe -m art_speed qch-site 17408304 17408305` |
 
-More commands are added as the build steps land (SP-2 import, SP-3 engine dump, SP-4 server,
-SP-5 report); this table is kept current.
+`--project` takes an A.R.T. project folder as is; any other folder needs `--number`. If a file's
+name and header give different sitenumbers the import stops and asks: re-run with `--use name`
+or `--use header`. `--no-qch` skips the QC Hub lookup.
+
+More commands are added as the build steps land (SP-3 engine dump, SP-4 server, SP-5 report).
 
 ## Layout
 
@@ -42,6 +47,9 @@ SP-5 report); this table is kept current.
 | `tools/make_fixture_viewer.py` | Re-creates the fixture-driven copy of the mockup in the design folder |
 | `art_speed/storage/db.py` | `speed_######.db`: schema, version stamp, upgrade on open (SP-1) |
 | `art_speed/storage/store.py` | Every read and write of the database |
+| `art_speed/importer/parse.py` | The strict Datalens speed CSV parser, raw and post-macro forms (SP-2) |
+| `art_speed/importer/scan.py`, `run.py` | Folder scan, checks, delete-and-replace import |
+| `art_speed/importer/nm_hint.py` | Reads `nm_######.db` read-only, once, for the grouping hint |
 | `art_speed/qch/` | QC Hub connection, login (A.R.T.'s, read-only) and the per-sitenumber lookup |
 | `art_speed/project.py` | Recognises an A.R.T. project folder (read-only) or takes a typed project number |
 | `COPIED_FROM_ART.md` | Every file copied or adapted from `claude_app`, to be dropped at the merge |
