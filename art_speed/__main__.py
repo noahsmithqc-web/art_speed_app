@@ -36,6 +36,10 @@ def build_parser() -> argparse.ArgumentParser:
     v.add_argument("--port", type=int, default=8766)
     v.add_argument("--mockup", metavar="FOLDER", help="the design repo's 'ui mockup' folder: serves the "
                                                       "fixture-driven mockup at /mockup/ with live data (read-only)")
+    r = sub.add_parser("report", help="generate the report workbooks of a project's Ready locations")
+    r.add_argument("--project", required=True, metavar="FOLDER", help="project folder")
+    r.add_argument("--number", help="six-digit project number, when the folder is not an A.R.T. project")
+    r.add_argument("--ids", nargs="+", type=int, metavar="ID", help="location ids (default: every Ready location)")
     q = sub.add_parser("qch-site", help="show what QC Hub knows about one or more sitenumbers")
     q.add_argument("sitenumbers", nargs="+", type=int)
     return parser
@@ -166,6 +170,24 @@ def cmd_serve(args) -> int:
     return 0
 
 
+def cmd_report(args) -> int:
+    """SP-5: fill the delivered template for each location into a new reports_ folder."""
+    from art_speed import project, report
+    from art_speed.storage import db
+    try:
+        proj = project.open_folder(args.project, args.number)
+        out = report.generate(proj, args.ids)
+    except (project.ProjectError, report.ReportError, db.SpeedDbError) as exc:
+        print(exc)
+        return 1
+    print(f"wrote {len(out['files'])} workbook{'s' if len(out['files']) != 1 else ''} to {out['path']}")
+    for f in out["files"]:
+        print(f"  {f['code']:<12} {f['file']}")
+    print("Open each workbook in Excel and save it once before sending: Excel computes the summary "
+          "and charts when it opens the file.")
+    return 0
+
+
 def cmd_qch_site(args) -> int:
     """SP-1: the QC Hub lookup the import runs, on its own - nothing is stored."""
     from art_speed.qch import site
@@ -189,6 +211,8 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.command in ("import", "scan"):
         return cmd_import(args, dry_run=args.command == "scan")
+    if args.command == "report":
+        return cmd_report(args)
     if args.command == "serve":
         return cmd_serve(args)
     if args.command == "dump":

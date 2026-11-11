@@ -10,7 +10,6 @@ import pytest
 from fastapi.testclient import TestClient
 
 from art_speed import contract, project, server
-from art_speed.storage import db, store
 from tests import helpers
 from tests.test_engine_fixtures import differences
 

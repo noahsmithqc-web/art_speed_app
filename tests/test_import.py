@@ -9,7 +9,6 @@ import pytest
 
 from art_speed import project
 from art_speed.importer import nm_hint, run, scan
-from art_speed.qch import site as qch_site
 from art_speed.storage import db, store
 from tests import helpers
 from tests.fakes import qch as fakes

@@ -68,7 +68,7 @@ def test_the_weeklong_location_is_fast_enough(fixtures):
 
 def apply_fixture_decisions(conn, location_id, want):
     """Put a fixture drawer's inputs (lane configs, corners, decisions) on an imported location."""
-    from art_speed.storage import db, store
+    from art_speed.storage import db
     site = int(want["location"]["sitenumbers"][0]["sitenumber"])
     with db.transaction(conn):
         for cam in want["cams"]:

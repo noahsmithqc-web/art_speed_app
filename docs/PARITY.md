@@ -63,3 +63,13 @@ by 0.27 and the rest by 0.07 or less.
 `tests/test_engine_fixtures.py` separately proves that the engine rebuilds every field of the six
 drawers the locked mockup computed (speed_fixtures.json), and that 174083's raw exports, taken
 through the real import and the database, give the same numbers as the mockup's baked-in data.
+
+## The report writer (SP-5)
+
+`tests/test_report.py` generates all six locations from the raw exports with the delivered
+decisions and checks, for every direction sheet, that the records written (date, time, direction,
+class, speed, track id, helper hour) are exactly the delivered sheet's records, and that the header
+fields (sitecode, location, start date, start time, duration, posted speeds) are the delivered
+ones. Where LibreOffice is installed, it also recalculates two generated workbooks with the
+template's own formulas and checks the Summary prints the delivered 85th percentiles and % over
+posted - the same check Excel performs when it opens the file.

@@ -30,6 +30,7 @@ py -3.13 -m venv .venv
 | Import a folder into a project | `.venv/Scripts/python.exe -m art_speed import <csv folder> --project <project folder> [--number 174083]` |
 | Engine output for a folder of exports, as the mockup's JSON | `.venv/Scripts/python.exe -m art_speed dump out.json --csv <csv folder> --js` |
 | The same for a project that already has speed data | `.venv/Scripts/python.exe -m art_speed dump out.json --project <project folder> --js` |
+| Generate the report workbooks of every Ready location | `.venv/Scripts/python.exe -m art_speed report --project <project folder> [--number 174083] [--ids 3 4]` |
 | Run the API on its own (development; the shell is SP-6) | `.venv/Scripts/python.exe -m art_speed serve --project <project folder> [--number 174083]` |
 | ... with the mockup showing the project's live data, read-only | add `--mockup "../claude/11 - intersection speed/ui mockup"`, then open `http://127.0.0.1:8766/mockup/` |
 | What QC Hub knows about a sitenumber (stores nothing) | `.venv/Scripts/python.exe -m art_speed qch-site 17408304 17408305` |
@@ -44,7 +45,10 @@ from disk). To try the mockup on another project: dump its exports, then open
 
 The API's routes are listed at the top of `art_speed/api.py`.
 
-More commands are added as the build steps land (SP-5 report).
+`report` writes one workbook per location into a new `reports_yyyy_mm_dd__hhmm` folder in the
+project folder. The workbook is the delivered template with the header fields and the source
+cam's rows filled in; **Excel computes the summary, the hourly table and the charts when it opens
+the file, so open each workbook in Excel and save it once before sending it.**
 
 ## Layout
 
@@ -67,6 +71,8 @@ More commands are added as the build steps land (SP-5 report).
 | `art_speed/edits.py` | Every change a user makes: validates, writes, adds the paper-trail line (SP-4) |
 | `art_speed/api.py` | The FastAPI router (`/speed/...`); mounted by the shell now and by A.R.T. at the merge |
 | `art_speed/server.py` | A bare app around the router for development and tests |
+| `art_speed/report.py` | The report writer: fills the delivered template, header fields and source-cam rows only (SP-5) |
+| `art_speed/reference/report_templates/speed_report_template.xlsx` | The shipped template (made by `tools/build_report_template.py` from the design folder's) |
 | `art_speed/qch/` | QC Hub connection, login (A.R.T.'s, read-only) and the per-sitenumber lookup |
 | `art_speed/project.py` | Recognises an A.R.T. project folder (read-only) or takes a typed project number |
 | `COPIED_FROM_ART.md` | Every file copied or adapted from `claude_app`, to be dropped at the merge |

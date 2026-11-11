@@ -25,5 +25,10 @@ Nothing in `claude_app` was changed to make these copies. Source commit: `claude
 | `art_speed/storage/db.py` | `art_app/near_miss/db.py` | Adapted | The open / create / check / upgrade / transaction pattern; the schema is the speed tool's own |
 | `tests/fakes/qch.py` | `tests/fakes/qch.py` (`FakeQchDb`, `tm_site`, `tube_site`) | Adapted | Only the four tables the site lookup reads |
 | `art_speed/api.py`, `art_speed/edits.py` | `art_app/reporting/routes.py`, `art_app/reporting/edits.py` | Pattern only | No code copied. Same split: thin routes over an edits module, every save in one transaction with its paper-trail line, the drawer read again and returned. Different on purpose: REST verbs and HTTP status codes for refusals (see the top of `api.py`) |
+| `art_speed/report.py` (`reports_folder`) | `art_app/reporting/generate.py` | Pattern only | The timestamped `reports_yyyy_mm_dd__hhmm` run folder and the report log. No code copied; the workbook writer is the speed tool's own |
+
+Not from A.R.T.: `art_speed/reference/report_templates/speed_report_template.xlsx` is the delivered
+speed template from the design folder (`sample reports\template - report`), with its Locations
+sample rows emptied by `tools/build_report_template.py`.
 
 Later steps add their own rows to this table (SP-6: lane diagram JS, drawer CSS, build script).

@@ -16,6 +16,7 @@
                                                          posted_same?, corners_linked?, site?}
     POST   /speed/locations/{id}/use-suggestions
     GET    /speed/export/{sitenumber}/{cam}/{dir}       ?bin=50-59 | ?above=60 [&location=id] -> CSV download
+    POST   /speed/report                                {ids?: [...]} -> {folder, path, files, tab}; no ids: every Ready location
 
 What comes back:
 
@@ -44,7 +45,7 @@ from typing import Callable
 from fastapi import APIRouter, Body
 from fastapi.responses import JSONResponse, Response
 
-from art_speed import contract, edits, engine, loader, payload, project as project_mod
+from art_speed import contract, edits, engine, loader, project as project_mod, report
 from art_speed.importer import run as import_run
 from art_speed.log import get_logger
 from art_speed.storage import db, store
@@ -109,6 +110,8 @@ def create_router(get_project: Callable[[], project_mod.Project | None]) -> APIR
         except edits.NotFound as exc:
             return _refusal(404, str(exc))
         except edits.EditError as exc:
+            return _refusal(422, str(exc))
+        except report.ReportError as exc:
             return _refusal(422, str(exc))
         except db.NoSpeedData as exc:
             return _refusal(404, str(exc))
@@ -345,6 +348,26 @@ def create_router(get_project: Callable[[], project_mod.Project | None]) -> APIR
             name = f"{sitenumber}_cam-{cam}_{direction}_{label}.csv"
             return Response(text, media_type="text/csv; charset=utf-8",
                             headers={"Content-Disposition": f'attachment; filename="{name}"'})
+        return answer(work)
+
+    # ------------------------------------------------------------------ the report (SP-5)
+
+    @router.post("/report")
+    def post_report(body: dict = Body(default={})):
+        """Generate workbooks: for the listed locations (the drawer's button sends one id, the batch
+        modal the ticked ones), or for every Ready location when no ids are sent. All or nothing."""
+        def work(proj):
+            data = body if isinstance(body, dict) else {}
+            unknown = sorted(set(data) - {"ids"})
+            if unknown:
+                raise _Refused(422, f"The report does not take {', '.join(unknown)}.")
+            ids = data.get("ids")
+            if ids is not None and (not isinstance(ids, list) or not all(
+                    isinstance(i, int) and not isinstance(i, bool) for i in ids)):
+                raise _Refused(422, "ids is a list of location ids.")
+            out = report.generate(proj, ids)
+            out["tab"] = with_db(proj, loader.tab)
+            return out
         return answer(work)
 
     return router
