@@ -51,6 +51,7 @@ Source commit for these: `claude_app` as it stood on 2026-11-12 (read only; noth
 | `art_speed/web/shell.css` | `art_app/web/styles.css` | Generated | The whole sheet, every rule scoped under `.as` by `tools/build_web_css.py` so it cannot touch the speed tab |
 | `art_speed/web/assets/qc_logo_white.png` | `art_app/web/assets/qc_logo_white.png` | Copied | — |
 | `run_speed.bat` | `run_art.bat` | Adapted | Starts `art_speed serve` |
+| `build_speed.bat`, `packaging/Speed.spec`, `packaging/speed_entry.py`, `requirements-build.txt` | `build_art.bat`, `packaging/ART.spec`, `packaging/art_entry.py`, `requirements-build.txt` | Adapted | One program with a console (the black window is the app) instead of a windowed exe plus a cli exe; no openpyxl / Pillow; self-check is `selfcheck` |
 | `tests/conftest.py` (`speed_home`) | `tests/conftest.py` | Adapted | The same isolation: a throw-away app folder and a stubbed Credential Manager for every test |
 
 From the locked mockup, not from A.R.T.: `art_speed/web/speed.css` (its `<style>` block, scoped

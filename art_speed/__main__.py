@@ -11,7 +11,9 @@ from art_speed import __version__
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="art_speed", description="Intersection speed tool")
     sub = parser.add_subparsers(dest="command")
-    sub.add_parser("version", help="print the tool version")
+    ver = sub.add_parser("version", help="print the tool version")
+    ver.add_argument("--bare", action="store_true", help="just the number (the build script reads it)")
+    sub.add_parser("selfcheck", help="check that everything the tool needs is there (run on a packaged build)")
     for name, text in (("import", "import every <sitenumber>_cam-<N>_speed.csv in a folder"),
                        ("scan", "read a folder of speed CSVs and report, writing nothing")):
         i = sub.add_parser(name, help=text)
@@ -233,12 +235,67 @@ def cmd_qch_site(args) -> int:
     return 0
 
 
+def cmd_selfcheck() -> int:
+    """Everything that is loaded by name at run time, where the packager's import scan cannot see
+    it: the page files, the report template, the region table, and the modules picked by name.
+    build_speed.bat runs this on the packaged tool; a MISSING line means packaging/Speed.spec
+    needs an entry."""
+    import importlib
+
+    from art_speed import paths, report
+    print(f"speed tool {__version__}  ({'packaged' if getattr(sys, 'frozen', False) else 'from source'})")
+    print(f"app files   {paths.app_home()}")
+    missing = 0
+    files = [paths.resource_path("web", name) for name in
+             ("index.html", "shell.js", "wizard.js", "speed.js", "boot.js", "shell.css", "speed.css",
+              "assets/qc_logo_white.png")]
+    files += [paths.resource_path("reference", "state_nm_region.csv"), report.TEMPLATE]
+    for path in files:
+        there = path.is_file()
+        missing += not there
+        print(f"  {'ok     ' if there else 'MISSING'} {path}")
+    modules = ["uvicorn.protocols.http.h11_impl", "uvicorn.loops.asyncio", "uvicorn.lifespan.on",
+               "mysql.connector", "mysql.connector.plugins.caching_sha2_password", "keyring",
+               "art_speed.main", "art_speed.excel"]
+    if sys.platform == "win32":
+        modules += ["keyring.backends.Windows", "tkinter.filedialog"]
+    for name in modules:
+        try:
+            importlib.import_module(name)
+            print(f"  ok      {name}")
+        except Exception as exc:                 # any failure to load is a packaging fault
+            missing += 1
+            print(f"  MISSING {name} ({exc})")
+    print("self-check passed" if not missing else f"self-check FAILED: {missing} missing")
+    return 1 if missing else 0
+
+
+def packaged_main() -> int:
+    """What SpeedTool.exe runs. Double-clicked (no arguments) it starts the tool; with arguments
+    it is the command line, so `SpeedTool.exe selfcheck` and `SpeedTool.exe version` work."""
+    if len(sys.argv) > 1:
+        return main()
+    try:
+        return main(["serve"])
+    except SystemExit as exc:                    # uvicorn leaves this way when the port is taken
+        code = exc.code if isinstance(exc.code, int) else 1
+    except Exception as exc:                     # the window would close before anyone could read it
+        print(f"\nThe speed tool stopped: {exc}")
+        code = 1
+    if code:
+        print("\nIf the speed tool is already running, use the browser tab it opened.")
+        input("Press Enter to close this window.")
+    return code
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     if args.command == "version":
-        print(f"speed tool {__version__}")
+        print(__version__ if args.bare else f"speed tool {__version__}")
         return 0
+    if args.command == "selfcheck":
+        return cmd_selfcheck()
     if args.command in ("import", "scan"):
         return cmd_import(args, dry_run=args.command == "scan")
     if args.command == "report":

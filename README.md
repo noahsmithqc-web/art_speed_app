@@ -46,6 +46,19 @@ statistics and report rows over the whole count (`docs/CONTRACT.md`, "Cam groups
 The tool keeps its own files (settings, recent list, `speed.log`) in `%LOCALAPPDATA%\SpeedTool`;
 set `SPEED_HOME` to put them somewhere else.
 
+## Build it for the team
+
+Double-click `build_speed.bat` (needs the `.venv`). It packages the tool with PyInstaller, runs
+the packaged tool's self-check, and leaves:
+
+- `dist\SpeedTool\SpeedTool.exe` - the tool and everything it needs, no Python required;
+- `dist\SpeedTool-<version>.zip` - what a teammate gets: unzip anywhere, double-click
+  `SpeedTool.exe`. A black window opens (the app) and a browser tab opens on it; closing the
+  black window stops the tool. Excel must be installed for reports to come out calculated.
+
+`SpeedTool.exe selfcheck` lists every bundled file and module; a MISSING line means
+`packaging/Speed.spec` needs an entry. The version comes from `art_speed/__init__.py`.
+
 ## Everyday use
 
 | What | Command |
@@ -106,6 +119,8 @@ send. If Excel can't be run, the answer says so and the workbooks need opening a
 | `art_speed/web/` | The page: `index.html`, `shell.js` (rail, Home, Settings, pop-ups), `speed.js` (the speed tab and drawer), `boot.js` |
 | `art_speed/web/shell.css`, `speed.css` | A.R.T.'s stylesheet and the mockup's, each under its own scope; written by `tools/build_web_css.py` |
 | `run_speed.bat` | Starts the tool from source |
+| `build_speed.bat`, `packaging/`, `requirements-build.txt` | The packaged build: `dist\SpeedTool\` and its zip |
+| `CHANGELOG.md` | Release notes; copied beside `SpeedTool.exe` |
 | `art_speed/report.py` | The report writer: fills the delivered template, header fields and source-cam rows only (SP-5) |
 | `art_speed/excel.py` | Has Excel calculate each generated workbook, turn the header (Summary C2:H13, direction sheets A1:J5) into values, and save it |
 | `art_speed/reference/report_templates/speed_report_template.xlsx` | The shipped template (made by `tools/build_report_template.py` from the design folder's) |

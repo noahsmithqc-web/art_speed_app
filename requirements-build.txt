@@ -1,0 +1,3 @@
+# Packaging. Only needed to build SpeedTool.exe, never to run it.
+-r requirements.txt
+pyinstaller==6.22.3

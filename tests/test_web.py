@@ -60,3 +60,15 @@ def test_serve_starts_the_app_and_api_is_the_development_server():
     assert args.project is None and args.port == 8766 and args.no_browser
     args = build_parser().parse_args(["api", "--project", "x"])
     assert args.command == "api" and args.mockup is None
+
+
+def test_selfcheck_passes_from_source_and_names_what_it_checks(capsys):
+    """build_speed.bat runs this on the packaged tool; from source everything must be there too."""
+    import pytest
+    pytest.importorskip("mysql.connector")
+    pytest.importorskip("keyring")
+    from art_speed.__main__ import main
+    assert main(["selfcheck"]) == 0
+    out = capsys.readouterr().out
+    assert "speed_report_template.xlsx" in out and "speed.js" in out and "self-check passed" in out
+    assert main(["version", "--bare"]) == 0 and capsys.readouterr().out.strip().count(".") == 2
