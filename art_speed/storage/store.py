@@ -267,14 +267,28 @@ def _hour_of(hhmmss: str | None) -> int:
 
 
 def default_window(conn: sqlite3.Connection, sitenumber: int) -> dict:
-    """SP-Q11: the count window from QC Hub when the site has one, else the file header."""
+    """SP-Q11: the count window from QC Hub when the site has one, else the file header, else
+    (a header with no duration) the span of the rows."""
     q, s = qch_row(conn, sitenumber), sitenumber_row(conn, sitenumber)
     if q is not None and q["count_date"] and q["start_time"] and q["duration_hr"]:
         return {"start_date": q["count_date"], "start_time": q["start_time"],
                 "duration_hr": q["duration_hr"], "source": db.WINDOW_QCH}
+    if s is not None and s["header_start_date"] and s["header_start_time"] and s["header_duration_hr"]:
+        return {"start_date": s["header_start_date"], "start_time": s["header_start_time"],
+                "duration_hr": s["header_duration_hr"], "source": db.WINDOW_HEADER}
+    # The header has no usable duration (Datalens writes 0.00 on a multiday export): the window
+    # runs from the hour of the first row to the end of the hour of the last row.
+    span = conn.execute(
+        "SELECT MIN(date || ' ' || substr(time, 1, 2)), MAX(date || ' ' || substr(time, 1, 2)) "
+        "FROM speed_event WHERE sitenumber = ?", (sitenumber,)).fetchone()
+    if span and span[0]:
+        from datetime import datetime
+        first = datetime.strptime(span[0], "%Y-%m-%d %H")
+        last = datetime.strptime(span[1], "%Y-%m-%d %H")
+        return {"start_date": span[0][:10], "start_time": f"{span[0][11:13]}:00:00",
+                "duration_hr": (last - first).total_seconds() / 3600 + 1, "source": db.WINDOW_ROWS}
     return {"start_date": s["header_start_date"] if s else None,
-            "start_time": s["header_start_time"] if s else None,
-            "duration_hr": (s["header_duration_hr"] or None) if s else None,
+            "start_time": s["header_start_time"] if s else None, "duration_hr": None,
             "source": db.WINDOW_HEADER}
 
 

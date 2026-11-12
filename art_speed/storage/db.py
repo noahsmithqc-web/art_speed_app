@@ -50,7 +50,8 @@ LOOKUPS = ("legacycounts", "orderlocation", "not_found", "manual")   # NULL = ne
 NAME_QCH, NAME_MANUAL = "qch", "manual"
 NAME_SOURCES = (NAME_QCH, NAME_MANUAL)
 WINDOW_QCH, WINDOW_HEADER, WINDOW_EDITED, WINDOW_SLICE = "QC Hub", "file header", "edited", "slice"
-WINDOW_SOURCES = (WINDOW_QCH, WINDOW_HEADER, WINDOW_EDITED, WINDOW_SLICE)
+WINDOW_ROWS = "rows"        # no usable duration in QC Hub or the header: first row's hour to the last row's
+WINDOW_SOURCES = (WINDOW_QCH, WINDOW_HEADER, WINDOW_EDITED, WINDOW_SLICE, WINDOW_ROWS)
 SITENUMBER_FROM = ("file name", "header")
 LOG_SCOPES = ("location", "site", "cam", "project")
 MASK_LOW_DEFAULT = 5    # "below 5 mph is masked"

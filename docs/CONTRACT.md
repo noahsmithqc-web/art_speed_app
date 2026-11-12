@@ -21,7 +21,7 @@ and `contract.check_drawer()` / `check_tab()` / `check_fixtures()` hold any payl
 | `generate.green` | every location is Ready (the near miss green rule) |
 | `rows[].code` | sitecode; grouped `01+02`; a split carries its slice in `slices[].label` |
 | `rows[].slices[]` | `sitenumber`, optional `date`, optional `from_hour`–`to_hour` (to is exclusive), `label` |
-| `rows[].window` | count window: `start_date`, `start_time` (`06:00 AM`), `duration_hours`, `source` (QC Hub / file header / edited / slice) |
+| `rows[].window` | count window: `start_date`, `start_time` (`06:00 AM`), `duration_hours`, `source` (QC Hub / file header / edited / slice / rows) |
 | `rows[].corners` / `posted` / `source_cams` | `{set, of}` – the "3/5" columns |
 | `rows[].status` | `state` ready / needs_input, `label`, `missing[]` (what stops it being Ready) |
 | `rows[].warnings[]` | warning sentences (the tag's hover text) |

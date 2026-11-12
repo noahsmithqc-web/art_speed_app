@@ -26,9 +26,10 @@ workbook is patched at the file level - only the sheets above, the shared-string
 workbook's sheet list are rewritten; every chart, drawing and style part is copied byte for byte
 (tests/test_report.py checks that).
 
-The numbers are Excel's: the workbook is marked to recalculate when it is opened. Until it has
-been opened and saved in Excel once, its stored values are the template's blanks - see the SP-5
-walkthrough.
+The numbers are Excel's. After a run's workbooks are written, the tool has Excel open,
+calculate and save each one (excel.py), so they are ready to send. Where Excel can't be run the
+workbooks are still valid and marked to calculate when opened; the run's answer then says they
+need opening and saving in Excel before they are sent.
 
 The template holds one posted speed per axis (N/S and E/W). A location whose two directions on
 an axis are both in the report with different posted speeds cannot be written into it correctly
@@ -46,7 +47,7 @@ from datetime import date, datetime
 from pathlib import Path
 from xml.sax.saxutils import escape
 
-from art_speed import config, contract, engine, loader, payload
+from art_speed import config, contract, engine, excel, loader, payload
 from art_speed.storage import db, store
 
 DIRECTIONS = contract.DIRECTIONS
@@ -355,13 +356,18 @@ def write_workbook(data: ReportData, path: str | os.PathLike, template: str | os
 
 # ------------------------------------------------------------------ a report run
 
-def generate(project, location_ids: list | None = None, now: datetime | None = None) -> dict:
+def generate(project, location_ids: list | None = None, now: datetime | None = None,
+             finalize=None) -> dict:
     """Generate workbooks for the given locations (None: every Ready location) into one new
     reports_ folder. All or nothing: if any location can't be generated, nothing is written.
 
-    Returns {'folder': name, 'path': full path, 'files': [{'location_id', 'code', 'file'}]}.
-    Each workbook is logged in the location's paper trail and in speed_report_log.
+    Returns {'folder': name, 'path': full path, 'files': [{'location_id', 'code', 'file'}],
+             'excel': {'done': bool, 'message': str}}.
+    `excel.done` says whether Excel calculated and saved the workbooks (ready to send); when it
+    is False the message says what to do. Each workbook is logged in the location's paper trail
+    and in speed_report_log. `finalize` defaults to excel.finalize; tests pass a stand-in.
     """
+    finalize = finalize or excel.finalize
     conn = db.open_db(project.folder, project.number)
     try:
         if location_ids is None:
@@ -396,6 +402,7 @@ def generate(project, location_ids: list | None = None, now: datetime | None = N
             if folder.exists() and not any(folder.iterdir()):
                 folder.rmdir()
             raise
+        done, message = finalize(written)
         files = []
         with db.transaction(conn):
             for g in gathered:
@@ -403,9 +410,12 @@ def generate(project, location_ids: list | None = None, now: datetime | None = N
                     "INSERT INTO speed_report_log (generated_utc, who, folder, file_name, location_id, "
                     "app_version) VALUES (?, ?, ?, ?, ?, ?)",
                     (db.now_utc(), store.user_name(), folder.name, g.file_name, g.location_id, config.VERSION))
-                store.log(conn, f"Report generated: {folder.name}\\{g.file_name}", location_id=g.location_id)
+                store.log(conn, f"Report generated: {folder.name}\\{g.file_name}"
+                          + ("" if done else " (not calculated by Excel: open and save it before sending)"),
+                          location_id=g.location_id)
                 files.append({"location_id": g.location_id, "code": payload.location_code(
                     store.load_location(conn, g.location_id)["slices"]), "file": g.file_name})
-        return {"folder": folder.name, "path": str(folder), "files": files}
+        return {"folder": folder.name, "path": str(folder), "files": files,
+                "excel": {"done": done, "message": message}}
     finally:
         conn.close()

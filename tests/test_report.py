@@ -54,6 +54,13 @@ def change(proj, sql, params=()):
     conn.close()
 
 
+@pytest.fixture(autouse=True)
+def no_excel(monkeypatch):
+    """These tests read what the tool itself wrote, so Excel is not run on the workbooks here
+    (tests/test_excel.py covers that step, with the real Excel where there is one)."""
+    monkeypatch.setattr(report.excel, "finalize", lambda paths, **kw: (False, "Excel was not run in this test."))
+
+
 def generate_one(proj, loc):
     out = report.generate(proj, [loc], now=datetime(2026, 11, 11, 14, 30))
     return proj.folder / out["folder"] / out["files"][0]["file"], out
@@ -214,7 +221,8 @@ def test_a_run_is_all_or_nothing_and_logged(ready, tmp_path):
     try:
         assert conn.execute("SELECT COUNT(*) FROM speed_report_log").fetchone()[0] == 2
         drawer = loader.drawer(conn, loc)
-        assert drawer["paper_trail"][0]["what"] == "Report generated: reports_2026_11_11__1430_2\\speed_17408304.xlsx"
+        assert drawer["paper_trail"][0]["what"] == ("Report generated: reports_2026_11_11__1430_2\\speed_17408304.xlsx"
+                                                    " (not calculated by Excel: open and save it before sending)")
         assert loader.tab(conn)["summary"]["last_report"] is not None
     finally:
         conn.close()
@@ -247,6 +255,8 @@ def delivered_project(samples, tmp_path_factory):
     with db.transaction(conn):
         for s in imported.sites:
             sn = str(s.sitenumber)
+            if sn not in books:                 # an export with no delivered workbook (the weeklong 17889013)
+                continue
             for d in parity.DIRECTIONS:
                 cam, floor = parity.DELIVERED.get((sn, d), (None, None))
                 conn.execute(
@@ -258,7 +268,7 @@ def delivered_project(samples, tmp_path_factory):
                          (books[sn].location, s.location_id))
         conn.execute("UPDATE speed_cam SET corner = 'NE'")
     conn.close()
-    out = report.generate(proj, now=datetime(2026, 11, 11, 14, 30))
+    out = report.generate(proj, now=datetime(2026, 11, 11, 14, 30), finalize=lambda paths: (False, "not run here"))
     return proj.folder / out["folder"], books
 
 

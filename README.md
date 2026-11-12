@@ -47,8 +47,9 @@ The API's routes are listed at the top of `art_speed/api.py`.
 
 `report` writes one workbook per location into a new `reports_yyyy_mm_dd__hhmm` folder in the
 project folder. The workbook is the delivered template with the header fields and the source
-cam's rows filled in; **Excel computes the summary, the hourly table and the charts when it opens
-the file, so open each workbook in Excel and save it once before sending it.**
+cam's rows filled in. Its summary, hourly table and charts are Excel formulas, so after writing
+the workbooks the tool has Excel (hidden) open, calculate and save each one: they are ready to
+send. If Excel can't be run, the answer says so and the workbooks need opening and saving once.
 
 ## Layout
 
@@ -72,6 +73,7 @@ the file, so open each workbook in Excel and save it once before sending it.**
 | `art_speed/api.py` | The FastAPI router (`/speed/...`); mounted by the shell now and by A.R.T. at the merge |
 | `art_speed/server.py` | A bare app around the router for development and tests |
 | `art_speed/report.py` | The report writer: fills the delivered template, header fields and source-cam rows only (SP-5) |
+| `art_speed/excel.py` | Has Excel calculate and save the generated workbooks so they are ready to send |
 | `art_speed/reference/report_templates/speed_report_template.xlsx` | The shipped template (made by `tools/build_report_template.py` from the design folder's) |
 | `art_speed/qch/` | QC Hub connection, login (A.R.T.'s, read-only) and the per-sitenumber lookup |
 | `art_speed/project.py` | Recognises an A.R.T. project folder (read-only) or takes a typed project number |

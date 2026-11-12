@@ -31,7 +31,7 @@ STATUS_LABELS = {READY: "Ready", NEEDS_INPUT: "Needs input"}
 WARNING_CODES = ("dead_cam", "off_leg", "outside_window", "over_half_masked", "header_vs_qch",
                  "not_in_qch")
 CSV_FORMS = ("raw", "post-macro")
-WINDOW_SOURCES = ("QC Hub", "file header", "edited", "slice")
+WINDOW_SOURCES = ("QC Hub", "file header", "edited", "slice", "rows")
 ROLES = ("Primary", "Secondary", "")
 
 

@@ -16,7 +16,7 @@
                                                          posted_same?, corners_linked?, site?}
     POST   /speed/locations/{id}/use-suggestions
     GET    /speed/export/{sitenumber}/{cam}/{dir}       ?bin=50-59 | ?above=60 [&location=id] -> CSV download
-    POST   /speed/report                                {ids?: [...]} -> {folder, path, files, tab}; no ids: every Ready location
+    POST   /speed/report                                {ids?: [...]} -> {folder, path, files, excel, tab}; no ids: every Ready location
 
 What comes back:
 

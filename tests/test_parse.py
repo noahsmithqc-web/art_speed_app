@@ -78,7 +78,8 @@ def test_header_sitenumber_that_differs_is_flagged_not_refused(tmp_path):
     (lambda t: t.replace("Sitecode:", "Site code:"), "line 1: expected 'Sitecode:'"),
     (lambda t: t.replace("Start time:,06:00 AM\n", ""), "line 3: expected 'Start time:'"),
     (lambda t: t.replace("Start date:,2026-02-24", "Start date:,24 Feb 2026"), "line 2: 'Start date:'"),
-    (lambda t: t.replace("Duration (hrs):,13.00", "Duration (hrs):,0"), "line 4: 'Duration"),
+    (lambda t: t.replace("Duration (hrs):,13.00", "Duration (hrs):,long"), "line 4: 'Duration"),
+    (lambda t: t.replace("Duration (hrs):,13.00", "Duration (hrs):,-1"), "line 4: 'Duration"),
     (lambda t: t.replace("13.00\n\n", "13.00\nx\n"), "line 5: expected a blank line"),
     (lambda t: t.replace("Speed (In MPH)", "Speed"), "line 6: the column row"),
     (lambda t: t.replace("Class,Speed (In MPH)", "Speed (In MPH),Class"), "line 6: the column row"),
@@ -126,3 +127,19 @@ def test_the_real_exports_parse(samples):
     assert counts["17650202_cam-2_speed.csv"] == 2979
     assert parse.parse(folder / "17408305_cam-1_speed.csv").dead
     assert not parse.parse(folder / "17408302_cam-1_speed.csv").dead    # 4,288 of 4,289 zero: not 100 %
+
+
+def test_a_header_duration_of_zero_is_accepted(tmp_path):
+    """Datalens writes 0.00 on a multiday export (the weeklong 17889013 file)."""
+    p = parse.parse(write(tmp_path, helpers.csv_text(17408304, ROWS, duration="0.00")))
+    assert p.form == parse.RAW and p.header_duration_hr == 0.0 and p.events == 3
+
+
+def test_the_real_weeklong_export_parses(samples):
+    path = samples / "raw datalens speed output" / "17889013_cam-1_speed.csv"
+    if not path.is_file():
+        pytest.skip("the weeklong 17889013 export is not in sample reports")
+    p = parse.parse(path)
+    assert (p.form, p.events, p.header_start_date, p.header_start_time, p.header_duration_hr) == (
+        parse.RAW, 269187, "2026-10-06", "00:00:00", 0.0)
+    assert p.duplicate_lines == 0 or p.duplicate_lines > 0          # counted, never dropped

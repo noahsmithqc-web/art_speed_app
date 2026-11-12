@@ -20,6 +20,9 @@ times without the leading zero (1:19:52 AM), the header's duration possibly 0, a
 number at the end of every data row. A post-macro file's header duration can't be trusted, so
 the header-vs-QC-Hub duration check is skipped for it (an advisory says so).
 
+A header duration of 0 is accepted in both forms (Datalens writes 0.00 on a multiday export): the
+count window's length then comes from QC Hub or, failing that, from the rows' own timestamps.
+
 Anything else is a parser mismatch and the file is refused, named, with the line that did not
 fit: a missing or reordered header line, a different column row, a row with the wrong number of
 fields, a date or time that is not one, a speed that is not a whole number >= 0, a direction that
@@ -203,8 +206,8 @@ def parse(path: str | Path) -> ParsedFile:
         if form == RAW:
             raise ParseError(name, f"'Duration (hrs):' is {duration!r}, not a number", 4) from None
         header_duration = None
-    if form == RAW and (header_duration is None or header_duration <= 0):
-        raise ParseError(name, f"'Duration (hrs):' is {duration!r}, not a number above zero", 4)
+    if form == RAW and (header_duration is None or header_duration < 0):
+        raise ParseError(name, f"'Duration (hrs):' is {duration!r}, not a number", 4)
 
     # ---- the rows
     rows, seen, duplicates = [], set(), 0

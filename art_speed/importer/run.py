@@ -127,6 +127,10 @@ def site_checks(scanned: scan.ScannedSite, found: qch_site.Site, lanes: dict) ->
     elif first.form == parse.POST_MACRO:
         advisories.append("Post-macro file: its header duration could not be checked")
 
+    if not first.header_duration_hr and not (found.count_date and found.duration_hr):
+        advisories.append("The file header gives a duration of 0: the count window's length was taken "
+                          "from the rows' own timestamps (editable in Setup)")
+
     # the count window that will be stored: QC Hub's when it has one, else the header's
     if found.count_date and found.start_time and found.duration_hr:
         window = (found.count_date, found.start_time, found.duration_hr)

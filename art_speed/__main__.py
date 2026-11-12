@@ -183,8 +183,7 @@ def cmd_report(args) -> int:
     print(f"wrote {len(out['files'])} workbook{'s' if len(out['files']) != 1 else ''} to {out['path']}")
     for f in out["files"]:
         print(f"  {f['code']:<12} {f['file']}")
-    print("Open each workbook in Excel and save it once before sending: Excel computes the summary "
-          "and charts when it opens the file.")
+    print(out["excel"]["message"])
     return 0
 
 
