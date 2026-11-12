@@ -202,3 +202,15 @@ def test_new_project_is_arts_wizard_and_writes_an_art_project_folder(tmp_path):
 
     again = client.post("/api/create", json={"number": "174083", "folder": str(tmp_path)}).json()
     assert not again["ok"] and again["error"]["kind"] == "exists" and again["branch"]["branch"] == "exists"
+
+
+def test_the_file_picker_route_answers_like_the_folder_picker(monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from art_speed import dialogs, main
+    client = TestClient(main.create_app())
+    monkeypatch.setattr(dialogs, "pick_files", lambda title, start, types: ["C:\\x\\17408301_cam-1_speed.csv"])
+    out = client.post("/api/dialog/files", json={"title": "t"}).json()
+    assert out["ok"] and out["files"] == ["C:\\x\\17408301_cam-1_speed.csv"] and out["cancelled"] is False
+    monkeypatch.setattr(dialogs, "pick_files", lambda title, start, types: None)
+    assert client.post("/api/dialog/files", json={}).json() == {"ok": True, "files": [], "cancelled": True}

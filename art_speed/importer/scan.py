@@ -88,8 +88,10 @@ class FolderError(Exception):
     """The folder can't be read. The message is written for the user."""
 
 
-def scan_folder(folder: str | os.PathLike, choices: dict | None = None) -> Scan:
-    """Parse every speed CSV in the folder (not its subfolders).
+def scan_folder(folder: str | os.PathLike, choices: dict | None = None,
+                only: list | None = None) -> Scan:
+    """Parse every speed CSV in the folder (not its subfolders) - or, with `only`, just the
+    files of that folder named in it (the page's file picker).
 
     `choices` maps a file name to 'file name' or 'header' for files whose two sitenumbers
     disagree. A disagreeing file without a choice lands in `disagreements`.
@@ -101,6 +103,9 @@ def scan_folder(folder: str | os.PathLike, choices: dict | None = None) -> Scan:
     out = Scan(folder)
     try:
         names = sorted(p.name for p in folder.iterdir() if p.is_file())
+        if only is not None:
+            wanted = {str(n) for n in only}
+            names = [n for n in names if n in wanted]
     except OSError as exc:
         raise FolderError(f"{folder} could not be read ({exc}).") from exc
 

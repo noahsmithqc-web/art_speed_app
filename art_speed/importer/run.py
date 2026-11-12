@@ -173,7 +173,7 @@ def site_checks(scanned: scan.ScannedSite, found: qch_site.Site, lanes: dict) ->
 
 def import_folder(project: project_mod.Project, folder: str | os.PathLike, *,
                   choices: dict | None = None, qch: connection.Connection | None = None,
-                  use_qch: bool = True, dry_run: bool = False) -> ImportReport:
+                  use_qch: bool = True, dry_run: bool = False, only: list | None = None) -> ImportReport:
     """Import every speed CSV in `folder` into the project's speed_######.db.
 
     `qch` is an open QC Hub connection (tests pass a fake); None opens one, and no login or no
@@ -181,11 +181,16 @@ def import_folder(project: project_mod.Project, folder: str | os.PathLike, *,
     `dry_run` scans and checks and writes nothing.
     """
     try:
-        found = scan.scan_folder(folder, choices)
+        found = scan.scan_folder(folder, choices, only)
     except scan.FolderError as exc:
         return ImportReport(REFUSED, str(folder), message=str(exc))
     report = ImportReport(IMPORTED, str(found.folder), unmatched=found.unmatched,
                           refused_files=[{"file": f.file_name, "error": f.error} for f in found.refused])
+    if only is not None:
+        # Picked by hand: a file that is not a speed export is said, not passed over in silence.
+        report.refused_files += [{"file": n, "error": f"{n} is not named <sitenumber>_cam-<N>_speed.csv."}
+                                 for n in found.unmatched]
+        report.unmatched = []
     if found.fatal:
         report.status, report.fatal = REFUSED, found.fatal
         report.message = found.fatal[0]
@@ -198,7 +203,8 @@ def import_folder(project: project_mod.Project, folder: str | os.PathLike, *,
         return report
     if not found.sites:
         report.status = REFUSED
-        report.message = ("No file in this folder could be imported." if found.refused else
+        report.message = ("None of the selected files could be imported." if only is not None else
+                          "No file in this folder could be imported." if found.refused else
                           "No <sitenumber>_cam-<N>_speed.csv file in this folder.")
         return report
 

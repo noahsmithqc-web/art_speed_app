@@ -35,7 +35,8 @@ black window to stop the tool.
   (host, port, database, username, password - the password goes to Windows Credential Manager
   under "Speed tool QCH", checked against QC Hub before it is stored). The tool never reads
   A.R.T.'s login.
-- **Speed** is the tab of the locked mockup: Add speed data, the locations table, the drawer
+- **Speed** is the tab of the locked mockup: Add speed data (a file picker: select the speed
+  CSVs to import, several at once, from one folder), the locations table, the drawer
   (Setup, Overview, Decisions, Detail, Paper trail), group / split, Generate report.
 
 In a grouped location (several sitenumbers in one report) the same cam number on every

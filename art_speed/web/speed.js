@@ -127,7 +127,7 @@ function renderTab(){
  const selRows=TAB.rows.filter(r=>SEL.has(r.id));const canGroup=selRows.length>1&&selRows.every(r=>!r.is_sliced&&!r.is_grouped);
  tab.innerHTML=head+`
  <div class="card"><h3>${has?'Speed data found':'No speed data yet'}</h3><div class="path">${esc(has?PROJECT.db:PROJECT.folder)}</div>
-  <div class="hint">${has?`${sum.sitenumbers} sitenumber${sum.sitenumbers===1?'':'s'} · ${sum.locations} report location${sum.locations===1?'':'s'} · ${sum.cams} cam${sum.cams===1?'':'s'} · last import ${sum.last_import||'—'} · QC Hub snapshot ${sum.qch_snapshot||'—'}`:`"Add speed data" imports every Datalens speed CSV (sitenumber_cam-N_speed.csv) in a folder into speed_${esc(PROJECT.number)}.db in this project folder.`}</div></div>
+  <div class="hint">${has?`${sum.sitenumbers} sitenumber${sum.sitenumbers===1?'':'s'} · ${sum.locations} report location${sum.locations===1?'':'s'} · ${sum.cams} cam${sum.cams===1?'':'s'} · last import ${sum.last_import||'—'} · QC Hub snapshot ${sum.qch_snapshot||'—'}`:`"Add speed data" imports the Datalens speed CSVs you select (sitenumber_cam-N_speed.csv) into speed_${esc(PROJECT.number)}.db in this project folder.`}</div></div>
  <div class="toolbar"><button class="btn green" onclick="addData()">Add speed data</button>
   <span class="sel-info">${SEL.size?SEL.size+' selected':''}</span>${SEL.size?`<button class="btn sm" ${canGroup?'':'disabled title="Select two or more unsplit, ungrouped locations"'} onclick="groupSel()">Group into one location</button><button class="btn sm ghost" onclick="SEL.clear();renderTab()">Clear</button>`:''}
   <span class="sp"></span><span style="color:var(--ink2)">Last report: ${sum.last_report||'none yet'}</span><button class="btn ${TAB.generate.green?'green':'pri'}" ${TAB.generate.enabled?'':'disabled'} onclick="openGen()">Generate report…</button></div>
@@ -145,16 +145,27 @@ document.addEventListener('scroll',()=>document.querySelectorAll('.menu.on').for
 document.addEventListener('click',e=>{if(!e.target.closest('.kebab'))document.querySelectorAll('.menu.on').forEach(x=>x.classList.remove('on'))});
 
 // ---------- add speed data ----------
-async function addData(folder,choices){
- if(!folder){folder=await pickFolder('Select the folder with the speed CSVs',PROJECT.folder);if(!folder)return}
- spinnerModal('Add speed data','','Importing speed data','Reading the speed CSVs and looking the sitenumbers up in QC Hub…');
- const r=await api('POST','/import',{folder,choices:choices||{}});if(!r)return;
+let IMPORT_DIR=null;    // where the last picker was left, so the next one opens there
+/** The files to import: {files:[...]} from the native multi-file picker, or {folder} typed when
+ *  this machine has no picker. Null when cancelled. */
+async function pickSpeedFiles(){
+ const typed=async()=>{const f=await typeFolder('Folder with the speed CSVs',IMPORT_DIR||PROJECT.folder);return f?{folder:f}:null};
+ if(APP.app&&APP.app.can_pick_folder===false)return typed();
+ let b;try{b=await post('/api/dialog/files',{title:'Select the speed CSVs to import',start:IMPORT_DIR||PROJECT.folder})}catch(e){engineDown(e);return null}
+ if(!b.ok){if(b.error.kind==='no_dialog')return typed();errorModal('The file picker is busy',b.error.message);return null}
+ if(b.cancelled||!b.files.length)return null;
+ IMPORT_DIR=b.files[0].replace(/[\\/][^\\/]*$/,'');return{files:b.files}}
+async function addData(src,choices){
+ if(!src){src=await pickSpeedFiles();if(!src)return}
+ const n=src.files?src.files.length:0;
+ spinnerModal('Add speed data','','Importing speed data','Reading '+(n?n+' speed CSV'+(n>1?'s':''):'the speed CSVs')+' and looking the sitenumbers up in QC Hub…');
+ const r=await api('POST','/import',{...src,choices:choices||{}});if(!r)return;
  closeModal();
- if(r.status==='needs_choice')return chooseNumbers(folder,r);
+ if(r.status==='needs_choice')return chooseNumbers(src,r);
  if(r.status==='refused')return errorModal('Nothing was imported',[r.message].concat((r.fatal||[]).slice(1)).concat((r.refused_files||[]).map(f=>f.file+': '+f.error)).join(' '));
  importDone(r)}
 /** The file name and the header of a file give different sitenumbers: the user says which. */
-function chooseNumbers(folder,r){
+function chooseNumbers(src,r){
  showModal('wide',`<div class="wstep"><span>Add speed data</span></div><h3>Which sitenumber is right?</h3><p>${esc(r.message)}</p>
  <div class="body"><table><thead><tr><th>File</th><th>File name says</th><th>Header says</th></tr></thead><tbody>${r.disagreements.map((x,i)=>`<tr><td class="mono">${esc(x.file)}</td>
   <td><label><input type="radio" name="pick${i}" value="file name" checked> ${esc(x.file_name_sitenumber)}</label></td>
@@ -162,7 +173,7 @@ function chooseNumbers(folder,r){
  <div class="actions" style="margin-top:16px"><button data-act="cancel">Cancel</button><div class="sp"></div><button class="primary" data-act="go">Import</button></div>`,act=>{
   if(act==='cancel')return closeModal();if(act!=='go')return;
   const choices={};r.disagreements.forEach((x,i)=>{choices[x.file]=modalBox().querySelector(`input[name=pick${i}]:checked`).value});
-  closeModal();addData(folder,choices)})}
+  closeModal();addData(src,choices)})}
 function importDone(r){const t=r.totals,list=a=>a&&a.length?`<div style="font-size:12px;color:var(--ink-2);white-space:normal">${a.map(esc).join('<br>')}</div>`:'';
  showModal('wide',`<div class="wstep"><span>Add speed data</span></div><h3>${t.sitenumbers} sitenumber${t.sitenumbers===1?'':'s'} imported</h3>
  <p>${t.files} file${t.files===1?'':'s'} · ${t.events.toLocaleString()} events${t.overwritten?` · ${t.overwritten} replaced (re-import is delete-and-replace)`:''}${r.created_db?` · speed_${esc(PROJECT.number)}.db created`:''}</p>

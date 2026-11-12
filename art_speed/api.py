@@ -39,6 +39,7 @@ from __future__ import annotations
 
 import csv
 import io
+import os
 import re
 from typing import Callable
 
@@ -182,8 +183,17 @@ def create_router(get_project: Callable[[], project_mod.Project | None]) -> APIR
     @router.post("/import")
     def post_import(body: dict = Body(...)):
         def work(proj):
-            data = _keys(body, {"folder", "choices", "use_qch", "dry_run"}, "The import")
-            folder = data.get("folder")
+            data = _keys(body, {"folder", "files", "choices", "use_qch", "dry_run"}, "The import")
+            folder, files, only = data.get("folder"), data.get("files"), None
+            if files is not None:
+                # The page's file picker: full paths, all from one folder.
+                if (folder is not None or not isinstance(files, list) or not files
+                        or not all(isinstance(f, str) and f.strip() for f in files)):
+                    raise _Refused(422, "Pick the speed CSVs to import.")
+                parents = {os.path.dirname(os.path.abspath(f.strip())) for f in files}
+                if len(parents) != 1:
+                    raise _Refused(422, "Pick files from one folder at a time.")
+                folder, only = parents.pop(), [os.path.basename(f.strip()) for f in files]
             if not isinstance(folder, str) or not folder.strip():
                 raise _Refused(422, "Pick the folder that holds the speed CSVs.")
             choices = data.get("choices") or {}
@@ -191,7 +201,7 @@ def create_router(get_project: Callable[[], project_mod.Project | None]) -> APIR
                 raise _Refused(422, "choices maps a file name to 'file name' or 'header'.")
             report = import_run.import_folder(proj, folder, choices=choices,
                                               use_qch=bool(data.get("use_qch", True)),
-                                              dry_run=bool(data.get("dry_run", False)))
+                                              dry_run=bool(data.get("dry_run", False)), only=only)
             return report.as_dict()
         return answer(work)
 

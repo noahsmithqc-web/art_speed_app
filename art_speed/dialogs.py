@@ -126,6 +126,25 @@ def pick_file(title: str = "Select file", start: str | os.PathLike | None = None
                     initialdir=str(start) if start else None, filetypes=types))
 
 
+def pick_files(title: str = "Select files", start: str | os.PathLike | None = None,
+               types: tuple = (("All files", "*.*"),)) -> list | None:
+    """Open the native file picker for several files at once (the speed tool's "Add speed data";
+    not in A.R.T.). Returns the chosen files, or None if they cancelled.
+
+    Call this off the request thread - it blocks until the user answers.
+    """
+    chosen: list = []
+
+    def ask(filedialog, root):
+        chosen.extend(filedialog.askopenfilenames(
+            parent=root, title=title, initialdir=str(start) if start else None, filetypes=types))
+        return chosen[0] if chosen else ""
+
+    if _ask("file picker", "Type the folder instead.", ask) is None:
+        return None
+    return [str(Path(p)) for p in chosen]
+
+
 def _explorer_windows() -> set:
     """The handles of the File Explorer windows open now (Windows only)."""
     import ctypes

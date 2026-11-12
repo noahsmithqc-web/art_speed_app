@@ -185,6 +185,19 @@ def create_app() -> FastAPI:
             return _fail("no_dialog", str(exc))
         return _ok(folder=chosen, cancelled=chosen is None)
 
+    @app.post("/api/dialog/files")
+    async def pick_files(body: PickIn) -> dict:
+        """Add speed data: several speed CSVs at once, from one folder."""
+        try:
+            chosen = await run_in_threadpool(
+                dialogs.pick_files, body.title or "Select files", body.start,
+                (("Speed CSV", "*_speed.csv"), ("CSV", "*.csv"), ("All files", "*.*")))
+        except dialogs.DialogBusy as exc:
+            return _fail("dialog_busy", str(exc))
+        except dialogs.DialogUnavailable as exc:
+            return _fail("no_dialog", str(exc))
+        return _ok(files=chosen or [], cancelled=chosen is None)
+
     # -------------------------------------------------------------- recent projects
 
     def _entry(card_id: str):

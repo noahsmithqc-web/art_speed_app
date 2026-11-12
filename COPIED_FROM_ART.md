@@ -40,7 +40,7 @@ Source commit for these: `claude_app` as it stood on 2026-11-12 (read only; noth
 | `art_speed/jsonfile.py` | `art_app/jsonfile.py` | Copied | — |
 | `art_speed/paths.py` | `art_app/paths.py` | Copied | App folder `%LOCALAPPDATA%\SpeedTool`, variable `SPEED_HOME`, log file `speed.log` |
 | `art_speed/appstate/recent.py`, `settings.py` | `art_app/appstate/` | Copied | — |
-| `art_speed/dialogs.py` | `art_app/dialogs.py` | Copied | — |
+| `art_speed/dialogs.py` | `art_app/create_project/dialogs.py` | Copied | `pick_files` added (several files at once, for Add speed data) |
 | `art_speed/session.py` | `art_app/session.py` | Adapted | Same one-open-project rule; opens with `project.open_folder`, which also takes a folder that is not an A.R.T. project plus a typed number |
 | `art_speed/main.py` | `art_app/main.py` | Adapted | Only the routes the shell needs (app, settings, QCH credentials, folder picker, recent projects, open / close / reveal); answers in A.R.T.'s `{ok, error:{kind, message}}` shape. No heartbeat: the tool stops when its window is closed |
 | `art_speed/web/shell.js` | `art_app/web/app.js`, `home.js`, `settings.js` | Adapted | The engine calls, modal, toast, rail, Home cards, folder picker and the whole Settings / About pop-up are A.R.T.'s code; the wizard, Summary and the two data tabs are left out; Home opens a folder instead of creating a project; the page state object is `APP` (the mockup's script already uses `S`) |

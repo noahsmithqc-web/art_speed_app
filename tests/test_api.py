@@ -106,6 +106,25 @@ def test_import_asks_then_follows_the_choice(client, csvs):
     assert client.post("/speed/import", json={"folder": str(csvs / "missing")}).json()["status"] == "refused"
 
 
+def test_import_of_picked_files_takes_only_those_files(client, csvs, tmp_path):
+    """Add speed data is a multi-file picker (2026-11-12): only the picked files are imported."""
+    names = sorted(p.name for p in csvs.iterdir())
+    assert len(names) > 1
+    (csvs / "notes.csv").write_text("x", encoding="utf-8")
+    picked = [str(csvs / names[0]), str(csvs / "notes.csv")]
+    done = client.post("/speed/import", json={"files": picked, "use_qch": False}).json()
+    assert done["status"] == "imported" and done["totals"]["files"] == 1
+    assert [f["file"] for f in done["refused_files"]] == ["notes.csv"]        # said, not passed over
+    assert done["unmatched"] == [] and client.get("/speed/locations").json()["summary"]["cams"] == 1
+    other = tmp_path / "elsewhere"
+    other.mkdir()
+    assert "one folder at a time" in refused(client.post(
+        "/speed/import", json={"files": [picked[0], str(other / names[1])]}))
+    assert "Pick the speed CSVs" in refused(client.post("/speed/import", json={"files": []}))
+    only_bad = client.post("/speed/import", json={"files": [str(csvs / "notes.csv")], "use_qch": False}).json()
+    assert only_bad["status"] == "refused" and "selected files" in only_bad["message"]
+
+
 def test_delete_sitenumber(loaded):
     client, ids = loaded
     out = client.delete("/speed/sitenumbers/17889013").json()
