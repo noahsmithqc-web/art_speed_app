@@ -32,6 +32,8 @@ MOCK_PATCHES = [
     ("page base rule", "html,body{margin:0;height:100%}", ""),
     ("scrim under the mockup's title bar", ".scrim{position:fixed;inset:40px 0 0 0;", ".scrim{position:fixed;inset:0;"),
     ("drawer under the mockup's title bar", ".drawer{position:fixed;top:40px;", ".drawer{position:fixed;top:0;"),
+    ("row menu opens leftward (it ran off the right edge of the page)",
+     ".menu{position:absolute;background:#fff;", ".menu{position:absolute;right:6px;background:#fff;"),
 ]
 
 

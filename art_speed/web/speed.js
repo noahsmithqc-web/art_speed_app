@@ -134,7 +134,14 @@ function renderTab(){
  ${has?`<table class="bgtable"><thead><tr><th class="chk"></th><th>Location</th><th>Count window</th><th class="n">Cams</th><th>In report</th><th class="n">Events</th><th>Corners</th><th>Posted</th><th>Source cams</th><th>Status</th><th></th></tr></thead><tbody>${rows.join('')}</tbody></table>
  <p class="hint">One report per location. A location is one or more slices (sitenumber, optional day, optional time window); tick rows to group sitenumbers, split a location from its drawer. Generate turns green when every location is Ready. Hover a warning tag for the detail.</p>`:''}`}
 function toggleSel(id,on){if(on)SEL.add(id);else SEL.delete(id);renderTab()}
-function toggleMenu(td){const m=td.querySelector('.menu');document.querySelectorAll('.menu.on').forEach(x=>x!==m&&x.classList.remove('on'));m.classList.toggle('on')}
+// The menu is placed on the window, not inside the table: the table clips what hangs out of it
+// (rounded corners), which hid the menu of the last row. It opens under the kebab, leftward, and
+// above it when there is no room below; scrolling closes it.
+function toggleMenu(td){const m=td.querySelector('.menu');document.querySelectorAll('.menu.on').forEach(x=>x!==m&&x.classList.remove('on'));
+ if(!m.classList.toggle('on'))return;
+ const r=td.getBoundingClientRect();m.style.position='fixed';m.style.left='auto';m.style.right=Math.max(6,window.innerWidth-r.right+6)+'px';
+ const h=m.offsetHeight,below=r.bottom-6;m.style.top=(below+h>window.innerHeight-6&&r.top-h>6?r.top-h+6:below)+'px'}
+document.addEventListener('scroll',()=>document.querySelectorAll('.menu.on').forEach(x=>x.classList.remove('on')),true);
 document.addEventListener('click',e=>{if(!e.target.closest('.kebab'))document.querySelectorAll('.menu.on').forEach(x=>x.classList.remove('on'))});
 
 // ---------- add speed data ----------
