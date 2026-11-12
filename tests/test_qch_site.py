@@ -66,11 +66,9 @@ def test_qch_down_leaves_every_site_unchecked_and_never_raises():
     assert not found[17408304].checked and "not checked" in found[17408304].describe()
 
 
-def test_no_login_is_not_an_error(monkeypatch, tmp_path):
-    monkeypatch.delenv("ART_QCH_CREDENTIALS", raising=False)
-    monkeypatch.setenv("ART_HOME", str(tmp_path / "no_art_here"))
+def test_no_login_is_not_an_error():
     found = site.lookup_sites([17408304])            # opens its own connection: there is no login
-    assert found[17408304].lookup is None
+    assert found[17408304].lookup is None and "Settings" in found[17408304].message
 
 
 def test_street_query_refused_costs_only_the_name():
@@ -80,25 +78,10 @@ def test_street_query_refused_costs_only_the_name():
     assert found.lookup == site.ORDERLOCATION and found.name == ""
 
 
-def test_login_comes_from_arts_settings_read_only(monkeypatch, tmp_path):
-    home = tmp_path / "art_home"
-    home.mkdir()
-    settings = home / "settings.json"
-    settings.write_text('{"settings_version": 1, "qch": {"host": "h", "user": "u", "database": "d", "port": 3307}}')
-    before = settings.read_bytes()
-    monkeypatch.setenv("ART_HOME", str(home))
-    monkeypatch.delenv("ART_QCH_CREDENTIALS", raising=False)
-    monkeypatch.setattr(credentials, "stored_password", lambda user: "secret" if user == "u" else None)
-    creds = credentials.load()
-    assert creds.safe == "u@h:3307/d" and creds.source == credentials.CREDENTIAL_MANAGER
-    assert "secret" not in repr(creds) and "secret" not in str(creds)
-    assert settings.read_bytes() == before and sorted(p.name for p in home.iterdir()) == ["settings.json"]
-
-
 def test_dev_credentials_file(monkeypatch, tmp_path):
     f = tmp_path / "qch.creds"
     f.write_text("host=h\nuser=u\npassword=p\ndatabase=d\n")
-    monkeypatch.setenv("ART_QCH_CREDENTIALS", str(f))
+    monkeypatch.setenv("SPEED_QCH_CREDENTIALS", str(f))
     assert credentials.load().safe == "u@h:3306/d"
     f.write_text("host=h\n")
     try:

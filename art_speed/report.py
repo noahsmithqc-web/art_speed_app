@@ -141,23 +141,26 @@ def gather(conn: sqlite3.Connection, location_id: int) -> ReportData:
         start_time=data.window.get("start_time"), duration_hours=data.window.get("duration_hours"),
         posted=posted, included=included, latitude=data.sites[0].latitude, longitude=data.sites[0].longitude,
         note=data.note or "")
-    cams = {c.key: c for c in data.cams}
-    for d in included:
+    groups = payload.cam_groups(data)                    # a grouped location's source is a cam group:
+    for d in included:                                   # that cam number's file on every sitenumber
         dec = data.decisions[d]
-        cam = cams[dec["source_cam"]]
-        site = int(cam.sitenumber)
-        slices = [s for s in data.slices if str(s["sitenumber"]) == cam.sitenumber]
-        masked, low, high, adjust = set(cam.masked_hours), dec["mask_low"], dec["mask_high"], dec["adjust_by"] or 0
+        members = groups[drawer["directions"][d]["source_cam"]]
+        masked = {h for cam in members for h in cam.masked_hours}
+        low, high, adjust = dec["mask_low"], dec["mask_high"], dec["adjust_by"] or 0
         rows = []
-        for r in store.cam_rows(conn, site, cam.cam, d):
-            speed = r["speed_mph"]
-            if speed == 0 or (low is not None and speed < low) or (high is not None and speed > high):
-                continue
-            key = engine.hour_key(r["date"], r["time"])
-            if key in masked or not engine.in_slices(slices, key):
-                continue
-            rows.append((r["date"], r["time"], f"{r['direction']} {r['movement']}", r["class"] or "",
-                         speed + adjust, r["track_id"] or ""))
+        for cam in members:
+            slices = [s for s in data.slices if str(s["sitenumber"]) == cam.sitenumber]
+            for r in store.cam_rows(conn, int(cam.sitenumber), cam.cam, d):
+                speed = r["speed_mph"]
+                if speed == 0 or (low is not None and speed < low) or (high is not None and speed > high):
+                    continue
+                key = engine.hour_key(r["date"], r["time"])
+                if key in masked or not engine.in_slices(slices, key):
+                    continue
+                rows.append((r["date"], r["time"], f"{r['direction']} {r['movement']}", r["class"] or "",
+                             speed + adjust, r["track_id"] or ""))
+        if len(members) > 1:
+            rows.sort(key=lambda row: (row[0], row[1]))          # one run of rows, by date and time
         expected = drawer["directions"][d]["report"]["n"]
         if len(rows) != expected:                       # the sheet must hold exactly the engine's rows
             raise ReportError(f"Location {code} {d}: {len(rows)} rows to write but the engine counted "

@@ -57,8 +57,16 @@ def _whole(value, what: str, low: int, high: int) -> int:
     return int(value)
 
 
+def group_sites(conn: sqlite3.Connection, loc: dict, number: int) -> list[int]:
+    """The location's sitenumbers that have this cam number, in slice order. In a grouped
+    location they are one camera (a cam group, payload.cam_groups); the first is its key."""
+    return [n for n in _sites(loc) if conn.execute(
+        "SELECT 1 FROM speed_cam WHERE sitenumber = ? AND cam = ?", (n, number)).fetchone()]
+
+
 def cam_ref(conn: sqlite3.Connection, loc: dict, cam) -> tuple[int, int]:
-    """'17408305:3' (or just 3 when the location has one sitenumber) -> (sitenumber, cam)."""
+    """'17408305:3' (or just 3 when the location has one sitenumber) -> (sitenumber, cam).
+    In a grouped location any member of a cam group names the group: its first sitenumber comes back."""
     sites = _sites(loc)
     text = str(cam)
     m = re.fullmatch(r"(\d{8,9}):(\d+)", text)
@@ -71,11 +79,18 @@ def cam_ref(conn: sqlite3.Connection, loc: dict, cam) -> tuple[int, int]:
     if site not in sites or conn.execute("SELECT 1 FROM speed_cam WHERE sitenumber = ? AND cam = ?",
                                          (site, number)).fetchone() is None:
         raise NotFound(f"Cam {text} is not a cam of location {loc['location_id']}.")
+    if len(sites) > 1:
+        site = group_sites(conn, loc, number)[0]
     return site, number
 
 
+def _cam_targets(conn: sqlite3.Connection, loc: dict, site: int, number: int) -> list[int]:
+    """The sitenumbers a change to this cam is written to: every member of its cam group."""
+    return group_sites(conn, loc, number) if len(_sites(loc)) > 1 else [site]
+
+
 def _cam_label(loc: dict, site: int, cam: int) -> str:
-    return f"Cam {cam}" + (f" · {str(site)[6:]}" if len(_sites(loc)) > 1 else "")
+    return f"Cam {cam}"
 
 
 def _blank(value) -> str:
@@ -147,7 +162,8 @@ def set_source_cam(conn, location_id: int, direction: str, cam) -> None:
         store.log(conn, f"{d} source cam cleared", location_id=location_id)
         return
     site, number = cam_ref(conn, loc, cam)
-    if (row["source_sitenumber"], row["source_cam"]) == (site, number):
+    grouped = len(_sites(loc)) > 1                       # there the cam number alone names the camera
+    if row["source_cam"] == number and (grouped or row["source_sitenumber"] == site):
         return
     suggested = payload._Location(loader.load(conn, location_id)).suggest(d)
     was_default = row["mask_low"] == db.MASK_LOW_DEFAULT and row["mask_high"] is None
@@ -215,15 +231,14 @@ def use_suggestions(conn, location_id: int) -> int:
 # ------------------------------------------------------------------ cams
 
 def set_corner(conn, location_id: int, cam, corner) -> None:
-    """A cam's corner (None clears it). With "corners linked", the same cam number on every
-    sitenumber of the location gets the corner too."""
+    """A cam's corner (None clears it). In a grouped location the cam is a cam group: the
+    corner goes to that cam number on every sitenumber of the location."""
     loc = _location(conn, location_id)
     site, number = cam_ref(conn, loc, cam)
     if corner is not None and corner not in contract.CORNERS:
         raise EditError(f"{corner!r} is not a corner (NW, NE, SW, SE).")
-    linked = bool(loc["corners_linked"]) and len(_sites(loc)) > 1
-    targets = _sites(loc) if linked else [site]
-    for n in targets:
+    linked = len(_sites(loc)) > 1
+    for n in _cam_targets(conn, loc, site, number):
         conn.execute("UPDATE speed_cam SET corner = ? WHERE sitenumber = ? AND cam = ?", (corner, n, number))
     store.log(conn, f"Cam {number} corner " + (f"set to {corner}" if corner else "cleared")
               + (" (all sitenumbers)" if linked else ""), sitenumber=site, cam=number)
@@ -231,21 +246,25 @@ def set_corner(conn, location_id: int, cam, corner) -> None:
 
 def set_time_mask(conn, location_id: int, cam, hours: list, masked: bool) -> None:
     """7b: mask or unmask date-hours of a cam ('YYYY-MM-DD HH'). The mask belongs to the camera;
-    any change clears its over-half acknowledgement."""
+    any change clears its over-half acknowledgement. For a cam group each hour goes to the
+    sitenumber(s) whose file has it."""
     loc = _location(conn, location_id)
     site, number = cam_ref(conn, loc, cam)
     if not isinstance(masked, bool) or not isinstance(hours, list) or not hours:
         raise EditError("A time mask needs a list of hours and masked true or false.")
-    have = {k for bins in store.cam_bins(conn, site, number).values() for k in bins}
+    have = {n: {k for bins in store.cam_bins(conn, n, number).values() for k in bins}
+            for n in _cam_targets(conn, loc, site, number)}
     for key in hours:
         if not isinstance(key, str) or not re.fullmatch(r"\d{4}-\d{2}-\d{2} ([01]\d|2[0-3])", key):
             raise EditError(f"{key!r} is not an hour (YYYY-MM-DD HH).")
-        if key not in have:
+        if not any(key in keys for keys in have.values()):
             raise EditError(f"Cam {number} has no data at {key}:00.")
-    hours = sorted(set(hours))
-    store.set_masked(conn, site, number, hours, masked)
-    store.log(conn, f"Cam {number}: {'masked' if masked else 'unmasked'} {payload.describe_hours(hours)}",
-              sitenumber=site, cam=number)
+    for n, keys in have.items():
+        mine = sorted(set(hours) & keys)
+        if mine:
+            store.set_masked(conn, n, number, mine, masked)
+            store.log(conn, f"Cam {number}: {'masked' if masked else 'unmasked'} {payload.describe_hours(mine)}",
+                      sitenumber=n, cam=number)
 
 
 def acknowledge_mask(conn, location_id: int, cam) -> None:
@@ -255,8 +274,9 @@ def acknowledge_mask(conn, location_id: int, cam) -> None:
     drawer_cam = next(c for c in loader.drawer(conn, location_id)["cams"] if c["key"] == f"{site}:{number}")
     if not drawer_cam["over_half_masked"]:
         raise EditError(f"Cam {number} does not have over half its hours masked: nothing to acknowledge.")
-    conn.execute("UPDATE speed_cam SET mask_ack_utc = ? WHERE sitenumber = ? AND cam = ?",
-                 (db.now_utc(), site, number))
+    for n in _cam_targets(conn, loc, site, number):
+        conn.execute("UPDATE speed_cam SET mask_ack_utc = ? WHERE sitenumber = ? AND cam = ?",
+                     (db.now_utc(), n, number))
     store.log(conn, f"Cam {number}: over-half time mask acknowledged", sitenumber=site, cam=number)
 
 

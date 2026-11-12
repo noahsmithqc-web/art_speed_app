@@ -10,13 +10,19 @@ and check that this module rebuilds the fixture's values (tests/test_engine_fixt
 
 The rules that are not arithmetic live here, each in one place:
 
-    dead cam        every speed in the cam's file is zero (SP-Q9)
+    cam group       in a grouped location (several sitenumbers) the same cam number on every
+                    sitenumber is one camera: one choice, one corner, statistics over all of
+                    its sitenumbers. Its key is its first member's (cam_groups)
+    dead cam        every speed in the cam's file is zero (SP-Q9); a cam group is dead when
+                    every member is
     corners ok      one cam: optional; several: every live cam has a corner
     suggestion      engine.suggest over the location's cams, only once corners are ok
     ready           corners ok, at least one direction in the report, and every included
                     direction has a source cam and a posted speed
     warnings        dead cam, off-leg events, hours outside the count window, over half the
-                    hours masked (until acknowledged), header vs QC Hub, not in QC Hub
+                    hours masked (until acknowledged), header vs QC Hub, not in QC Hub; in a
+                    grouped location also a cam that is not on every sitenumber and a member
+                    with far fewer rows than the other cams of its sitenumber
 """
 
 from __future__ import annotations
@@ -86,6 +92,60 @@ class LocationData:
     nm_grouping_used: bool = False
     corners_linked: bool = True
     trail: list = field(default_factory=list)              # contract paper_trail entries, newest first
+
+
+# ------------------------------------------------------------------ cam groups
+
+def cam_groups(data: LocationData) -> dict:
+    """{key: [CamData, ...]} - the cams of a location as the page counts them.
+
+    One sitenumber: every cam on its own, under its own key. A grouped location: the same cam
+    number on every sitenumber is one camera (a cam group), under the key of its first member
+    in slice order, members in slice order, groups by cam number.
+    """
+    if len(data.sites) < 2:
+        return {c.key: [c] for c in data.cams}
+    order = {s.sitenumber: i for i, s in enumerate(data.sites)}
+    by_number: dict = {}
+    for c in sorted(data.cams, key=lambda c: order.get(c.sitenumber, len(order))):
+        by_number.setdefault(c.cam, []).append(c)
+    return {by_number[n][0].key: by_number[n] for n in sorted(by_number)}
+
+
+def _all_zero(cam: CamData) -> bool:
+    """SP-Q9: 100 % zero speeds over the whole file."""
+    n = zero = 0
+    for bins in cam.bins.values():
+        for counts in bins.values():
+            for speed, rows in counts.items():
+                n += rows
+                if speed == 0:
+                    zero += rows
+    return n > 0 and zero == n
+
+
+def _pooled(members: list, site_slices: dict) -> CamData:
+    """A cam group as one cam: every member's rows inside its own sitenumber's slices, added up
+    hour by hour. The corner is the members' when they agree; the time mask is all of theirs."""
+    bins: dict = {}
+    for m in members:
+        slices = site_slices[m.sitenumber]
+        for direction, hours in m.bins.items():
+            out = bins.setdefault(direction, {})
+            for key, counts in hours.items():
+                if not engine.in_slices(slices, key):
+                    continue
+                hour = out.setdefault(key, {})
+                for speed, rows in counts.items():
+                    hour[speed] = hour.get(speed, 0) + rows
+    corners = {m.corner for m in members}
+    first = members[0]
+    return CamData(
+        sitenumber=first.sitenumber, cam=first.cam, file=", ".join(m.file for m in members),
+        csv_form="post-macro" if any(m.csv_form == "post-macro" for m in members) else "raw",
+        events=sum(m.events for m in members), corner=first.corner if len(corners) == 1 else None,
+        masked_hours=sorted({h for m in members for h in m.masked_hours}),
+        mask_acknowledged=all(m.mask_acknowledged for m in members), bins=bins)
 
 
 # ------------------------------------------------------------------ labels
@@ -183,18 +243,24 @@ class _Location:
         self.d = data
         self.site_numbers = [s.sitenumber for s in data.sites]
         self.first = data.sites[0]
-        self.cams = {c.key: c for c in data.cams}
-        self.keys = list(self.cams)
         self.site_slices = {n: [s for s in data.slices if str(s["sitenumber"]) == n]
                             for n in self.site_numbers}
+        self.grouped = len(data.sites) > 1
+        self.groups = cam_groups(data)                   # {key: member cams}
+        self.key_of = {m.key: key for key, members in self.groups.items() for m in members}
+        self.cams = ({key: _pooled(members, self.site_slices) for key, members in self.groups.items()}
+                     if self.grouped else {c.key: c for c in data.cams})
+        self.keys = list(self.cams)
         self._obs: dict = {}
         self.include = {d: bool(data.decisions[d]["include"]) for d in DIRECTIONS}
         self.included = [d for d in DIRECTIONS if self.include[d]]
-        self.source = {d: (data.decisions[d]["source_cam"] if data.decisions[d]["source_cam"] in self.cams
-                           else None) for d in DIRECTIONS}
+        # a stored source cam of a grouped location may name any member: it means the group
+        self.source = {d: self.key_of.get(data.decisions[d]["source_cam"]) for d in DIRECTIONS}
 
     # -- observed sets
     def slices_of(self, key: str) -> list:
+        if self.grouped:                                 # a cam group's rows are already inside the slices
+            return [{}]
         return self.site_slices[self.cams[key].sitenumber]
 
     def obs(self, key: str, direction: str) -> engine.Observed:
@@ -217,19 +283,46 @@ class _Location:
 
     # -- cams
     def label(self, key: str) -> str:
-        cam = self.cams[key]
-        return f"Cam {cam.cam}" + (f" · {cam.sitenumber[6:]}" if len(self.site_numbers) > 1 else "")
+        return f"Cam {self.cams[key].cam}"
+
+    @staticmethod
+    def member_label(cam: CamData) -> str:
+        """One sitenumber's file of a cam group: 'Cam 3 · 30'."""
+        return f"Cam {cam.cam} · {cam.sitenumber[6:]}"
 
     def dead(self, key: str) -> bool:
-        """SP-Q9: 100 % zero speeds over the whole file."""
-        n = zero = 0
-        for bins in self.cams[key].bins.values():
-            for counts in bins.values():
-                for speed, rows in counts.items():
-                    n += rows
-                    if speed == 0:
-                        zero += rows
-        return n > 0 and zero == n
+        """SP-Q9: 100 % zero speeds over the whole file - of every member, for a cam group."""
+        return all(_all_zero(m) for m in self.groups[key])
+
+    def member_rows(self, cam: CamData) -> int:
+        """A member file's rows inside the location's slices, time masks not applied."""
+        slices = self.site_slices[cam.sitenumber]
+        return sum(rows for bins in cam.bins.values() for key, counts in bins.items()
+                   if engine.in_slices(slices, key) for rows in counts.values())
+
+    def group_warnings(self) -> list:
+        """Grouped locations only: a cam that is not on every sitenumber, and a member file with
+        under half the rows of the busiest cam of its sitenumber (the group's statistics then
+        lean on the other sitenumbers)."""
+        out = []
+        for key, members in self.groups.items():
+            have = {m.sitenumber for m in members}
+            missing = [n for n in self.site_numbers if n not in have]
+            if missing:
+                out.append({"code": "partial_cam",
+                            "text": f"{self.label(key)} is on {len(members)} of {len(self.site_numbers)} "
+                                    f"sitenumbers (not on {', '.join(missing)})"})
+        for n in self.site_numbers:
+            rows = {m.key: (m, self.member_rows(m)) for members in self.groups.values()
+                    for m in members if m.sitenumber == n}
+            top = max((r for _, r in rows.values()), default=0)
+            best = next((m for m, r in rows.values() if r == top), None)
+            for m, r in rows.values():
+                if top and r < top * contract.WEAK_MEMBER_BELOW and not _all_zero(m):
+                    out.append({"code": "weak_member",
+                                "text": f"{self.member_label(m)} has {r:,} event{'' if r == 1 else 's'} against {top:,} on "
+                                        f"{self.member_label(best).lower()}"})
+        return out
 
     def corners_ok(self) -> bool:
         return len(self.keys) < 2 or all(self.cams[k].corner for k in self.keys if not self.dead(k))
@@ -292,10 +385,14 @@ class _Location:
 
     def warnings(self) -> list:
         out = []
-        dead = [k for k in self.keys if self.dead(k)]
+        dead = [self.label(k) for k in self.keys if self.dead(k)]
+        if self.grouped:                                 # one sitenumber's file of a live cam group
+            dead += [self.member_label(m) for k in self.keys if not self.dead(k)
+                     for m in self.groups[k] if _all_zero(m)]
         if dead:
-            out.append({"code": "dead_cam",
-                        "text": ", ".join(self.label(k) for k in dead) + " dead (100 % zero speeds)"})
+            out.append({"code": "dead_cam", "text": ", ".join(dead) + " dead (100 % zero speeds)"})
+        if self.grouped:
+            out += self.group_warnings()
         off = {}
         for d in DIRECTIONS:
             if not self.include[d]:
@@ -389,12 +486,24 @@ def _cam(loc: _Location, key: str) -> dict:
         directions[d] = {"n": st["n"], "zero": st["zero"], "n_nonzero": st["n_nonzero"],
                          "pct_zero": st["pct_zero"], "avg": st["avg"], "p85": st["p85"],
                          "role": engine.role(cam.corner, d)}
-    return {"key": key, "sitenumber": cam.sitenumber, "cam": cam.cam, "label": loc.label(key),
-            "corner": cam.corner, "file": cam.file, "csv_form": cam.csv_form, "events": cam.events,
-            "events_in_location": sum(loc.obs(key, d).n for d in DIRECTIONS), "dead": loc.dead(key),
-            "masked_hours": sorted(cam.masked_hours), "mask_acknowledged": bool(cam.mask_acknowledged),
-            "hours_with_data": len(keys), "over_half_masked": bool(keys) and masked > len(keys) / 2,
-            "directions": directions}
+    out = {"key": key, "sitenumber": cam.sitenumber, "cam": cam.cam, "label": loc.label(key),
+           "corner": cam.corner, "file": cam.file, "csv_form": cam.csv_form, "events": cam.events,
+           "events_in_location": sum(loc.obs(key, d).n for d in DIRECTIONS), "dead": loc.dead(key),
+           "masked_hours": sorted(cam.masked_hours), "mask_acknowledged": bool(cam.mask_acknowledged),
+           "hours_with_data": len(keys), "over_half_masked": bool(keys) and masked > len(keys) / 2,
+           "directions": directions}
+    if loc.grouped:                                      # a cam group: its files, one per sitenumber
+        members = loc.groups[key]
+        out["on_sitenumbers"] = {"set": len(members), "of": len(loc.site_numbers)}
+        out["members"] = [{
+            "key": m.key, "sitenumber": m.sitenumber, "cam": m.cam, "label": loc.member_label(m),
+            "corner": m.corner, "file": m.file, "csv_form": m.csv_form, "events": m.events,
+            "events_in_location": sum(
+                engine.observe(m.bins.get(d, {}), loc.site_slices[m.sitenumber], m.masked_hours).n
+                for d in DIRECTIONS),
+            "dead": _all_zero(m), "masked_hours": sorted(m.masked_hours),
+            "mask_acknowledged": bool(m.mask_acknowledged)} for m in members]
+    return out
 
 
 def _histogram(loc: _Location, key: str, direction: str) -> dict | None:
@@ -499,8 +608,9 @@ def build_drawer(data: LocationData) -> dict:
         "cams": [_cam(loc, k) for k in loc.keys],
         "histograms": histograms,
         "hourly": _hourly(loc),
-        "bins": {k: {d: {hk: {str(s): n for s, n in sorted(counts.items())} for hk, counts in bins.items()}
-                     for d, bins in loc.cams[k].bins.items()} for k in loc.keys},
+        # every file's own bins: in a grouped location under the member keys, not the cam group's
+        "bins": {c.key: {d: {hk: {str(s): n for s, n in sorted(counts.items())} for hk, counts in bins.items()}
+                         for d, bins in c.bins.items()} for c in data.cams},
         "note": data.note or "",
         "status": {"state": contract.READY if status_ready else contract.NEEDS_INPUT,
                    "label": contract.STATUS_LABELS[contract.READY if status_ready else contract.NEEDS_INPUT],
@@ -550,12 +660,15 @@ def from_drawer(drawer: dict) -> LocationData:
             lane_config={d: dirs[d]["lane_config"] for d in DIRECTIONS} if i == 0 else {},
             lane_config_qch={d: dirs[d]["lane_config_qch"] for d in DIRECTIONS} if i == 0 else {},
             latitude=loc["latitude"] if i == 0 else None, longitude=loc["longitude"] if i == 0 else None))
+    files = [m for c in drawer["cams"] for m in c.get("members", [c])]      # a cam group's members
+    order = {s.sitenumber: i for i, s in enumerate(sites)}
+    files.sort(key=lambda c: (order.get(c["sitenumber"], len(order)), c["cam"]))
     cams = [CamData(sitenumber=c["sitenumber"], cam=c["cam"], file=c["file"], csv_form=c["csv_form"],
                     events=c["events"], corner=c["corner"], masked_hours=list(c["masked_hours"]),
                     mask_acknowledged=c["mask_acknowledged"],
                     bins={d: {hk: {int(s): n for s, n in counts.items()} for hk, counts in bins.items()}
                           for d, bins in drawer["bins"].get(c["key"], {}).items()})
-            for c in drawer["cams"]]
+            for c in files]
     w = loc["window"]
     return LocationData(
         id=loc["id"],

@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Speed tool</title>
+<link rel="icon" href="assets/qc_logo_white.png">
+<link rel="stylesheet" href="shell.css">
+<link rel="stylesheet" href="speed.css">
+<style>
+/* The page frame. Everything else is one of the two scoped sheets: .as = A.R.T.'s look (rail,
+   Home, pop-ups, Settings), .sv = the locked speed mockup's look (the tab and its drawer). */
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:#f6f7f9;overflow-y:scroll}
+[hidden]{display:none !important}
+.frame{display:flex;flex-direction:row;align-items:flex-start;min-height:100vh}
+#railwrap{flex:0 0 200px;position:sticky;top:0;height:100vh;z-index:20}
+#homewrap,#speedwrap{flex:1;min-width:0;min-height:100vh}
+#speedfix{position:relative;z-index:30;background:none}
+/* the mockup's two pop-ups have a footer row it never styled */
+.sv .mfoot{display:flex;gap:8px;align-items:center;padding:12px 20px 16px;border-top:1px solid var(--line2)}
+.sv .mfoot .note{margin-right:auto;color:var(--ink2);font-size:13px}
+.sv .namerow{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px}
+.sv .namerow input.f{flex:1;min-width:220px}
+</style>
+</head>
+<body>
+<div class="frame">
+  <div class="as" id="railwrap"><nav class="siderail" id="tabbar"></nav></div>
+  <div class="as" id="homewrap"><main id="main" class="full"></main></div>
+  <div class="sv" id="speedwrap" hidden><main class="tab" id="tab"></main></div>
+</div>
+<div class="sv" id="speedfix">
+  <div class="scrim" id="scrim" onclick="closeDrawer()"></div>
+  <aside class="drawer" id="drawer"></aside>
+  <div class="mscrim" id="m-gen"><div class="modal narrow" id="genmodal"></div></div>
+  <div class="mscrim" id="m-split"><div class="modal narrow" id="splitmodal"></div></div>
+</div>
+<div class="as">
+  <div class="veil" id="veil" hidden><div class="modal" id="modal"></div></div>
+  <div class="toast" id="toast" hidden></div>
+</div>
+<!-- shell.js: the rail, Home, Settings, pop-ups. wizard.js: New project. speed.js: the speed tab. boot.js starts it. -->
+<script src="shell.js"></script>
+<script src="wizard.js"></script>
+<script src="speed.js"></script>
+<script src="boot.js"></script>
+</body>
+</html>

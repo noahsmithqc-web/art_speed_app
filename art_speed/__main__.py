@@ -30,11 +30,16 @@ def build_parser() -> argparse.ArgumentParser:
     d.add_argument("--number", help="six-digit project number (with --csv: any; with --project: when not an A.R.T. folder)")
     d.add_argument("--qch", action="store_true", help="with --csv: look the sitenumbers up in QC Hub")
     d.add_argument("--js", action="store_true", help="also write <out>.js (window.SPEED_FIXTURES = ...) for the mockup opened from disk")
-    v = sub.add_parser("serve", help="run the API on its own on 127.0.0.1 (development; the shell is SP-6)")
-    v.add_argument("--project", required=True, metavar="FOLDER", help="project folder")
+    v = sub.add_parser("serve", help="start the speed tool: the app on 127.0.0.1 and a browser tab on it")
+    v.add_argument("--project", metavar="FOLDER", help="open this project folder straight away")
     v.add_argument("--number", help="six-digit project number, when the folder is not an A.R.T. project")
     v.add_argument("--port", type=int, default=8766)
-    v.add_argument("--mockup", metavar="FOLDER", help="the design repo's 'ui mockup' folder: serves the "
+    v.add_argument("--no-browser", action="store_true", help="do not open the browser tab")
+    a = sub.add_parser("api", help="run the bare /speed API for one project (development)")
+    a.add_argument("--project", required=True, metavar="FOLDER", help="project folder")
+    a.add_argument("--number", help="six-digit project number, when the folder is not an A.R.T. project")
+    a.add_argument("--port", type=int, default=8766)
+    a.add_argument("--mockup", metavar="FOLDER", help="the design repo's 'ui mockup' folder: serves the "
                                                       "fixture-driven mockup at /mockup/ with live data (read-only)")
     r = sub.add_parser("report", help="generate the report workbooks of a project's Ready locations")
     r.add_argument("--project", required=True, metavar="FOLDER", help="project folder")
@@ -153,7 +158,33 @@ def cmd_dump(args) -> int:
 
 
 def cmd_serve(args) -> int:
-    """SP-4: the API under uvicorn, for trying it before the shell exists."""
+    """SP-6: the speed tool. The app runs here; the screen is a browser tab on it. One project is
+    open at a time, and the window this runs in is the app - closing it stops the tool."""
+    import threading
+    import webbrowser
+
+    import uvicorn
+
+    from art_speed import config, main as app_main, project, session
+    if args.project:
+        try:
+            opened = session.open_folder(args.project, args.number)
+        except (session.NeedsNumber, project.ProjectError) as exc:
+            print(exc)
+            return 1
+        print(f"project {opened.number} open ({opened.folder})")
+    url = f"http://{config.HOST}:{args.port}/"
+    print(f"Speed tool {__version__} is running at {url}")
+    print("Close this window to stop the speed tool.")
+    if not args.no_browser:
+        threading.Timer(1.0, webbrowser.open, args=(url,)).start()
+    uvicorn.run(app_main.create_app(), host=config.HOST, port=args.port, log_level="warning")
+    return 0
+
+
+def cmd_api(args) -> int:
+    """SP-4: the bare /speed API of one project under uvicorn, with the fixture-driven mockup
+    beside it - a development tool, kept for comparing the engine with the locked mockup."""
     import uvicorn
 
     from art_speed import project, server
@@ -214,6 +245,8 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_report(args)
     if args.command == "serve":
         return cmd_serve(args)
+    if args.command == "api":
+        return cmd_api(args)
     if args.command == "dump":
         return cmd_dump(args)
     if args.command == "qch-site":

@@ -29,7 +29,8 @@ BLANK_BELOW = 5                      # ... and with fewer than this, blank
 READY, NEEDS_INPUT = "ready", "needs_input"
 STATUS_LABELS = {READY: "Ready", NEEDS_INPUT: "Needs input"}
 WARNING_CODES = ("dead_cam", "off_leg", "outside_window", "over_half_masked", "header_vs_qch",
-                 "not_in_qch")
+                 "not_in_qch", "partial_cam", "weak_member")
+WEAK_MEMBER_BELOW = 0.5              # a cam group's file with under half its sitenumber's busiest cam's rows
 CSV_FORMS = ("raw", "post-macro")
 WINDOW_SOURCES = ("QC Hub", "file header", "edited", "slice", "rows")
 ROLES = ("Primary", "Secondary", "")
@@ -88,6 +89,12 @@ CAM = {"key": str, "sitenumber": str, "cam": int, "label": str, "corner": opt(on
        "file": str, "csv_form": one_of(*CSV_FORMS), "events": int, "events_in_location": int,
        "dead": bool, "masked_hours": many(str), "mask_acknowledged": bool, "hours_with_data": int,
        "over_half_masked": bool, "directions": per_direction(CAM_DIRECTION)}
+# A grouped location's cam is a cam group (the same cam number on every sitenumber): the entry
+# then also lists its files, one per sitenumber, and how many sitenumbers have that cam.
+CAM_MEMBER = {"key": str, "sitenumber": str, "cam": int, "label": str, "corner": opt(one_of(*CORNERS)),
+              "file": str, "csv_form": one_of(*CSV_FORMS), "events": int, "events_in_location": int,
+              "dead": bool, "masked_hours": many(str), "mask_acknowledged": bool}
+CAM_GROUP = dict(CAM, members=many(CAM_MEMBER), on_sitenumbers={"set": int, "of": int})
 HISTOGRAM = {"events": int, "zero": int, "masked_hours": int, "bins": keyed(int),
              "occupied": many(int), "min_speed": opt(int), "max_speed": opt(int),
              "bins10": many({"from": int, "to": int, "n": int, "above_upper_mask": bool})}
@@ -113,7 +120,7 @@ LOCATION = {"id": int, "code": str, "name": str, "name_source": one_of("qch", "m
             "count_days": many(str), "cams": int, "events": int, "masked_hours": int}
 
 DRAWER = {"location": LOCATION, "posted_same": {"NS": bool, "EW": bool},
-          "directions": per_direction(DIRECTION), "cams": many(CAM),
+          "directions": per_direction(DIRECTION), "cams": many(("cam",)),
           "histograms": keyed(keyed(HISTOGRAM)),            # cam key -> direction -> histogram
           "hourly": HOURLY,
           "bins": keyed(keyed(keyed(keyed(int)))),          # cam key -> direction -> 'YYYY-MM-DD HH' -> speed -> n
@@ -173,6 +180,8 @@ def _check(value, schema, path: str, errors: list) -> None:
     elif schema[0] == "warning":
         ack = isinstance(value, dict) and value.get("code") == "over_half_masked"
         _check(value, WARNING_ACK if ack else WARNING, path, errors)
+    elif schema[0] == "cam":
+        _check(value, CAM_GROUP if isinstance(value, dict) and "members" in value else CAM, path, errors)
     elif schema[0] == "trail":
         shared = isinstance(value, dict) and value.get("scope") in ("site", "cam")
         _check(value, TRAIL_SITE if shared else TRAIL, path, errors)

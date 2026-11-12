@@ -322,30 +322,39 @@ def create_router(get_project: Callable[[], project_mod.Project | None]) -> APIR
                 if conn.execute("SELECT 1 FROM speed_cam WHERE sitenumber = ? AND cam = ?",
                                 (sitenumber, cam)).fetchone() is None:
                     raise edits.NotFound(f"Sitenumber {sitenumber} has no cam {cam}.")
-                slices = [{}]
+                files = {sitenumber: [{}]}                      # sitenumber -> its slices
                 if location is not None:
                     try:
                         loc = store.load_location(conn, location)
                     except KeyError:
                         raise edits.NotFound(f"Location {location} does not exist.") from None
-                    slices = [s for s in loc["slices"] if s["sitenumber"] == sitenumber]
-                masked = set(store.masked_hours(conn, sitenumber, cam))
+                    # in a grouped location the cam is a cam group: its file on every sitenumber
+                    members = (edits.group_sites(conn, loc, cam) if len({s["sitenumber"] for s in loc["slices"]}) > 1
+                               else [sitenumber])
+                    files = {n: [s for s in loc["slices"] if s["sitenumber"] == n] for n in members}
+                masked = {h for n in files for h in store.masked_hours(conn, n, cam)}
+                rows = []
+                for n, slices in files.items():
+                    for r in store.cam_rows(conn, n, cam, direction):
+                        speed = r["speed_mph"]
+                        if speed < low or (high is not None and speed > high) or speed == 0:
+                            continue
+                        key = engine.hour_key(r["date"], r["time"])
+                        if key in masked or not engine.in_slices(slices, key):
+                            continue
+                        rows.append([r["date"], r["time"], f"{r['direction']} {r['movement']}",
+                                     r["class"] or "", speed, r["track_id"] or "", n, cam])
+                if len(files) > 1:
+                    rows.sort(key=lambda row: (row[0], row[1]))
                 out = io.StringIO(newline="")
                 writer = csv.writer(out, lineterminator="\r\n")
                 writer.writerow(EXPORT_COLUMNS)
-                for r in store.cam_rows(conn, sitenumber, cam, direction):
-                    speed = r["speed_mph"]
-                    if speed < low or (high is not None and speed > high) or speed == 0:
-                        continue
-                    key = engine.hour_key(r["date"], r["time"])
-                    if key in masked or not engine.in_slices(slices, key):
-                        continue
-                    writer.writerow([r["date"], clock_12h(r["time"]), f"{r['direction']} {r['movement']}",
-                                     r["class"] or "", speed, r["track_id"] or "", sitenumber, cam])
-                return out.getvalue()
+                for row in rows:
+                    writer.writerow(row[:1] + [clock_12h(row[1])] + row[2:])
+                return "_".join(str(n) for n in files), out.getvalue()
 
-            text = with_db(proj, inner)
-            name = f"{sitenumber}_cam-{cam}_{direction}_{label}.csv"
+            sites, text = with_db(proj, inner)
+            name = f"{sites}_cam-{cam}_{direction}_{label}.csv"
             return Response(text, media_type="text/csv; charset=utf-8",
                             headers={"Content-Disposition": f'attachment; filename="{name}"'})
         return answer(work)

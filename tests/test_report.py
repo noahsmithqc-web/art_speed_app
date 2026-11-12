@@ -105,7 +105,9 @@ def test_only_the_header_fields_and_the_rows_are_written(ready):
     assert [s[f"{c}12"].value for c in "EFGH"] == ["=NB!J2", "=SB!J2", "--", "--"]
     assert [s[f"{c}13"].value for c in "EFGH"] == [
         "=_xlfn.XLOOKUP(E2,Locations!A:A,Locations!D:D)", "=E13", "--", "--"]
-    assert s["E14"].value == "=IF($G$20>0,E13+$G$20,E13)" and s["G20"].value is None      # the threshold input is the client's
+    assert s["E14"].value == '=IFERROR(IF($G$20>0,E13+$G$20,E13),"--")' and s["G20"].value is None      # the threshold input is the client's
+    # template of 2026-11-12: % over posted shows two decimals, on Summary and the direction sheets
+    assert s["E12"].number_format == "0.00%" and wb["NB"]["J2"].number_format == "0.00%"
     assert s["C16"].value == "Note: Queueing NB & <low> speeds."
     assert len(s._charts) == 5 and len(s._images) == 1
     assert [c.value for c in wb["Locations"][2]] == [

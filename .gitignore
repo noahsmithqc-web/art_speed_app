@@ -34,3 +34,6 @@ qch_creds*
 
 # the report template ships with the tool
 !art_speed/reference/report_templates/*.xlsx
+
+# local test projects (real project data)
+speed_projects/

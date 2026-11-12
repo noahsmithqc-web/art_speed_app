@@ -313,7 +313,9 @@ def create_location(conn: sqlite3.Connection, slices: list[dict], *, nm_grouping
     Fresh: a direction is in the report when the first sitenumber's lane config gives it a lane,
     with no posted speed, no source cam and the default mask. With `seed_from` (a split or an
     ungroup) the decisions, note, name and posted-speed links are copied from that location
-    (SP-Q22); a copied source cam is kept only if its sitenumber is among the new slices.
+    (SP-Q22); a copied source cam is kept only if its sitenumber is among the new slices. To or
+    from a grouped location the source is a cam group (the cam number on every sitenumber): it
+    is kept when a new sitenumber has that cam number, under the first that does.
     """
     if not slices:
         raise ValueError("a location needs at least one slice")
@@ -342,14 +344,19 @@ def create_location(conn: sqlite3.Connection, slices: list[dict], *, nm_grouping
             "INSERT INTO speed_slice (location_id, position, sitenumber, date, from_hour, to_hour) "
             "VALUES (?, ?, ?, ?, ?, ?)",
             (location_id, position, s["sitenumber"], s.get("date"), s.get("from_hour"), s.get("to_hour")))
-    sites = {s["sitenumber"] for s in slices}
+    sites = list(dict.fromkeys(s["sitenumber"] for s in slices))
+    by_group = len(sites) > 1 or (seed is not None and len({s["sitenumber"] for s in seed["slices"]}) > 1)
     used, _ = lane_configs(conn, first_site)
     for d in DIRECTIONS:
         if seed:
             row = seed["directions"][d]
-            keep = row["source_sitenumber"] in sites
+            source = row["source_sitenumber"] if row["source_sitenumber"] in sites else None
+            if by_group and row["source_cam"] is not None:
+                source = next((n for n in sites if conn.execute(
+                    "SELECT 1 FROM speed_cam WHERE sitenumber = ? AND cam = ?",
+                    (n, row["source_cam"])).fetchone()), None)
             values = (row["include_in_report"], row["posted_mph"],
-                      row["source_sitenumber"] if keep else None, row["source_cam"] if keep else None,
+                      source, row["source_cam"] if source is not None else None,
                       row["adjust_by"], row["mask_low"], row["mask_high"])
         else:
             values = (int(has_leg(used[d])), None, None, None, 0, db.MASK_LOW_DEFAULT, None)

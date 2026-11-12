@@ -20,6 +20,24 @@ def samples_dir() -> Path:
     return Path(os.environ.get("SPEED_SAMPLE_REPORTS") or _DEFAULT_SAMPLES)
 
 
+@pytest.fixture(autouse=True)
+def speed_home(tmp_path, monkeypatch):
+    """Every test gets a throwaway app-state folder and no QC Hub login, so the real
+    %LOCALAPPDATA%\\SpeedTool, the real Credential Manager and the real QC Hub are never touched."""
+    from art_speed import config, session
+    from art_speed.log import reset_logging
+    from art_speed.qch import credentials
+    home = tmp_path / "speed_home"
+    monkeypatch.setenv(config.ENV_HOME, str(home))
+    monkeypatch.delenv(config.ENV_QCH_CREDENTIALS, raising=False)
+    monkeypatch.setattr(credentials, "_keyring", lambda: None)      # no Credential Manager in tests
+    reset_logging()
+    session.close()
+    yield home
+    session.close()
+    reset_logging()
+
+
 @pytest.fixture(scope="session")
 def fixtures() -> dict:
     return json.loads(FIXTURES.read_text(encoding="utf-8"))

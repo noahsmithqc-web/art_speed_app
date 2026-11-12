@@ -42,6 +42,9 @@ def test_the_command_is_powershell_with_the_script_encoded():
     assert "Excel.Application" in script and "CalculateFull()" in script and "$wb.Save()" in script
     assert "$excel.Visible = $false" in script and "$excel.DisplayAlerts = $false" in script
     assert "$excel.Quit()" in script                                   # Excel is always closed again
+    # the header becomes values after calculating and before saving (2026-11-12)
+    assert "'Summary' = 'C2:H13'" in script and script.count("'A1:J5'") == 4
+    assert script.index("CalculateFull()") < script.index("Set-HeaderValues $wb") < script.index("$wb.Save()")
 
 
 def test_every_workbook_of_the_run_goes_to_one_excel(tmp_path):
@@ -142,5 +145,12 @@ def test_the_real_excel_calculates_the_generated_workbook(ready):
         assert stored[f"{column}12"].value == pytest.approx(want[d]["report"]["pct_over_posted"])
         assert stored[f"{column}13"].value == 25
     assert stored["G11"].value == "--" and stored["H11"].value == "--"
-    formulas = openpyxl.load_workbook(path)["Summary"]
-    assert formulas["E11"].value == "=NB!H5" and len(formulas._charts) == 5       # Excel kept the template's formulas and charts
+    book = openpyxl.load_workbook(path)
+    formulas = book["Summary"]
+    assert len(formulas._charts) == 5                                             # Excel kept the template's charts
+    # the header is values now: no formula left in Summary C2:H13 or in A1:J5 of an included direction sheet
+    for sheet, cells in ((formulas, "C2:H13"), (book["NB"], "A1:J5"), (book["SB"], "A1:J5")):
+        left = [c.coordinate for row in sheet[cells] for c in row if isinstance(c.value, str) and c.value.startswith("=")]
+        assert left == [], f"{sheet.title}: formulas left in {left}"
+    assert formulas["E11"].value == pytest.approx(want["NB"]["report"]["p85"])
+    assert str(formulas["E14"].value).startswith("=IFERROR(")                     # below the header the sheet stays live

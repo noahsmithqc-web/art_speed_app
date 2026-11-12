@@ -1,16 +1,13 @@
-"""Where the QC Hub login comes from. Adapted from A.R.T.'s qch/credentials.py.
+"""Where the QCH login comes from.
 
-The speed tool has no Settings screen of its own in 0.1.0, so it reuses the login the user
-already set up in A.R.T. - read-only:
+Two sources, and the app never mixes them:
 
-* **Development** - the file named by ART_QCH_CREDENTIALS (`key=value` lines: host, user,
-  password, database, optional port). Same file A.R.T.'s development setup uses.
-* **Production** - host, port, user and database from A.R.T.'s settings.json, the password from
-  Windows Credential Manager under A.R.T.'s entry ("A.R.T. QCH").
-
-Nothing here writes to A.R.T.'s settings or to the Credential Manager: A.R.T.'s Settings screen
-stays the one place a login is entered. No login at all is not an error for the speed tool - the
-import goes on and every sitenumber is "not checked against QC Hub" (plan SP-Q5).
+* **Development** - a file outside any folder Claude can see, named by the SPEED_QCH_CREDENTIALS
+  setting. `key=value`, one per line: host, user, password, database (port optional, 3306 by
+  default). Used only while that setting exists.
+* **Production** - the non-secret half (host, port, user, database) lives in settings.json where
+  anyone can read it, and the password alone lives in Windows Credential Manager. Entered once in
+  Settings (C7).
 
 The password is never written to the log, never put in an error message, and never returned by
 anything that formats a connection for display. `Credentials.safe` is the only text form.
@@ -18,19 +15,18 @@ anything that formats a connection for display. `Credentials.safe` is the only t
 
 from __future__ import annotations
 
-import json
 import os
-import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
 from art_speed import config, fsguard
+from art_speed.appstate import settings
 from art_speed.log import get_logger
 
 log = get_logger(__name__)
 
 DEFAULT_PORT = 3306
-KEYRING_SERVICE = config.ART_KEYRING_SERVICE
+KEYRING_SERVICE = "Speed tool QCH"        # what shows in Windows Credential Manager
 
 DEV_FILE = "dev file"
 CREDENTIAL_MANAGER = "Credential Manager"
@@ -66,7 +62,7 @@ class Credentials:
 # ---------------------------------------------------------------- development file
 
 def dev_file() -> Path | None:
-    """The path in ART_QCH_CREDENTIALS, or None when the setting isn't set."""
+    """The path in SPEED_QCH_CREDENTIALS, or None when the setting isn't set."""
     raw = os.environ.get(config.ENV_QCH_CREDENTIALS, "").strip().strip('"')
     return Path(os.path.expandvars(os.path.expanduser(raw))) if raw else None
 
@@ -86,7 +82,7 @@ def _parse(text: str) -> dict:
 def from_dev_file(path: Path) -> Credentials:
     try:
         text = fsguard.guarded(path.read_text, encoding="utf-8-sig",
-                               what="reading the credentials file")
+                               what=f"reading the credentials file")
     except FileNotFoundError as exc:
         raise CredentialsMissing(
             f"{config.ENV_QCH_CREDENTIALS} points at {path}, but there is no file there."
@@ -111,41 +107,13 @@ def from_dev_file(path: Path) -> Credentials:
                        database=values["database"], port=port, source=DEV_FILE)
 
 
-# ---------------------------------------------------------------- A.R.T.'s saved connection
-
-def art_settings_file() -> Path:
-    """A.R.T.'s settings.json (%LOCALAPPDATA%\\ART, or ART_HOME in development). Read only."""
-    override = os.environ.get(config.ENV_ART_HOME, "").strip()
-    if override:
-        home = Path(os.path.expandvars(os.path.expanduser(override)))
-    elif sys.platform == "win32":
-        base = os.environ.get("LOCALAPPDATA") or str(Path.home() / "AppData" / "Local")
-        home = Path(base) / config.ART_APP_DIR_NAME
-    else:                                   # automated tests, Claude's sandbox
-        base = os.environ.get("XDG_DATA_HOME") or str(Path.home() / ".local" / "share")
-        home = Path(base) / config.ART_APP_DIR_NAME
-    return home / "settings.json"
-
-
-def art_connection() -> dict:
-    """host / port / user / database as A.R.T. saved them, or {} when there is nothing usable."""
-    path = art_settings_file()
-    try:
-        raw = json.loads(fsguard.guarded(path.read_text, encoding="utf-8-sig",
-                                         what="reading A.R.T.'s settings"))
-    except (OSError, ValueError, fsguard.FsTimeout):
-        return {}
-    qch = raw.get("qch") if isinstance(raw, dict) else None
-    if not isinstance(qch, dict):
-        return {}
-    return {k: qch[k] for k in ("host", "user", "database", "port") if qch.get(k)}
-
+# ---------------------------------------------------------------- Credential Manager
 
 def _keyring():
-    """The keyring module, or None when it isn't installed."""
+    """The keyring module, or None when it isn't installed (so C4 can be tested without it)."""
     try:
         import keyring
-    except ImportError:                      # pragma: no cover - installed from requirements.txt
+    except ImportError:                      # pragma: no cover - present in the packaged app
         log.warning("keyring is not installed; the Credential Manager cannot be read")
         return None
     return keyring
@@ -162,24 +130,41 @@ def stored_password(user: str) -> str | None:
         return None
 
 
+def forget_password(user: str) -> None:
+    """Remove a stored password. Used when a saved one turns out to be wrong."""
+    kr = _keyring()
+    if kr is None:
+        return
+    try:
+        kr.delete_password(KEYRING_SERVICE, user)
+        log.info("QCH password removed from the Credential Manager for %s", user)
+    except Exception as exc:                 # no entry to remove is not a failure
+        log.debug("no QCH password to remove for %s (%s)", user, type(exc).__name__)
+
+
+def store_password(user: str, password: str) -> None:
+    """Save the password for this user. Called from Settings (C7)."""
+    kr = _keyring()
+    if kr is None:
+        raise CredentialsMissing("This copy of the app cannot reach Windows Credential Manager.")
+    kr.set_password(KEYRING_SERVICE, user, password)
+    log.info("QCH password stored in the Credential Manager for %s", user)
+
+
 def from_credential_manager() -> Credentials:
-    saved = art_connection()
+    saved = settings.qch_connection()
     absent = [key for key in ("host", "user", "database") if not saved.get(key)]
     if absent:
         raise CredentialsMissing(
-            "No QC Hub connection is set up yet. Add the host, user and database in A.R.T.'s "
-            "Settings; the speed tool uses the same login.")
+            "No QCH connection is set up yet. Add the host, user and database in Settings.")
     password = stored_password(saved["user"])
     if not password:
         raise CredentialsMissing(
-            f"No password is saved for {saved['user']}. Enter it again in A.R.T.'s Settings.")
-    try:
-        port = int(saved.get("port") or DEFAULT_PORT)
-    except (TypeError, ValueError):
-        port = DEFAULT_PORT
-    return Credentials(host=str(saved["host"]).strip(), user=str(saved["user"]).strip(),
-                       password=password, database=str(saved["database"]).strip(),
-                       port=port, source=CREDENTIAL_MANAGER)
+            f"No password is saved for {saved['user']}. Enter it again in Settings.")
+    return Credentials(host=saved["host"], user=saved["user"], password=password,
+                       database=saved["database"],
+                       port=int(saved.get("port") or DEFAULT_PORT),
+                       source=CREDENTIAL_MANAGER)
 
 
 # ---------------------------------------------------------------- the one entry point
@@ -189,8 +174,67 @@ def load() -> Credentials:
     path = dev_file()
     if path is not None:
         found = from_dev_file(path)
-        log.info("QC Hub credentials from the development file (%s)", found.safe)
+        log.info("QCH credentials from the development file (%s)", found.safe)
         return found
     found = from_credential_manager()
-    log.info("QC Hub credentials from the Credential Manager (%s)", found.safe)
+    log.info("QCH credentials from the Credential Manager (%s)", found.safe)
     return found
+
+
+# ---------------------------------------------------------------- saving, checked
+
+# What save_connection did. The screens and the command line both branch on these.
+CONNECTED = "connected"            # saved, and it works
+REJECTED = "rejected"              # QCH answered and said no - nothing was saved
+SAVED_UNCHECKED = "saved_unchecked"  # saved, but QCH could not be reached to try it
+
+
+@dataclass
+class Saved:
+    outcome: str
+    message: str
+
+    @property
+    def ok(self) -> bool:
+        return self.outcome == CONNECTED
+
+
+def save_connection(host: str, user: str, database: str, password: str,
+                    port: int | None = None) -> Saved:
+    """Save a QCH login, having checked it first.
+
+    This is the whole job behind Settings' Save button and the set-password command, so the
+    rule lives in one place rather than in each front end. The order matters: the login is
+    tried *before* anything is stored, so a password QCH rejects never reaches the Credential
+    Manager. A password that could not be checked - no VPN, server down - is stored anyway,
+    because someone has to be able to set up their credentials while off the network.
+    """
+    from art_speed.qch import connection          # here, not at the top: connection imports us
+
+    if not (str(host).strip() and str(user).strip() and str(database).strip()):
+        return Saved(REJECTED, "The QCH host, user and database are all needed.")
+    if not password:
+        return Saved(REJECTED, "Enter the password.")
+
+    candidate = Credentials(host=str(host).strip(), user=str(user).strip(),
+                            password=password, database=str(database).strip(),
+                            port=int(port or DEFAULT_PORT), source=CREDENTIAL_MANAGER)
+
+    ok, message, reason = connection.check(candidate)
+    if not ok and reason == connection.REFUSED:
+        log.warning("QCH refused the credentials for %s; nothing was saved", candidate.safe)
+        return Saved(REJECTED,
+                     "QCH refused that login. Check the user name and password and try again "
+                     "- nothing was saved.")
+
+    settings.set_qch_connection(candidate.host, candidate.user, candidate.database,
+                                candidate.port)
+    store_password(candidate.user, password)
+
+    if ok:
+        log.info("QCH connection saved and checked (%s)", candidate.safe)
+        return Saved(CONNECTED, "Saved. The connection to QCH works.")
+    log.warning("QCH connection saved but not checked (%s): %s", candidate.safe, message)
+    return Saved(SAVED_UNCHECKED,
+                 f"Saved, but QCH could not be reached to check it. {message} "
+                 "It will be used next time you are on the network.")

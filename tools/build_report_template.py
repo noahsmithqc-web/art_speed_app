@@ -1,6 +1,6 @@
 """SP-5: make the shipped report template from the delivered template in the design folder.
 
-    python tools/build_report_template.py "<...>/sample reports/template - report/speed deliverable template w charts 2.xlsx"
+    python tools/build_report_template.py "<...>/sample reports/template - report/speed deliverable template w charts 2 - Copy.xlsx"
 
 Writes art_speed/reference/report_templates/speed_report_template.xlsx.
 

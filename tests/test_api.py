@@ -275,10 +275,12 @@ def test_group_and_ungroup(loaded):
     assert [r["code"] for r in out["tab"]["rows"]] == ["04+13"] and out["tab"]["rows"][0]["is_grouped"]
     d = client.get(f"/speed/locations/{group}").json()
     assert d["directions"]["NB"]["posted"] == 25                                   # the first location's decisions
-    assert [c["label"] for c in d["cams"]] == ["Cam 1 · 04", "Cam 2 · 04", "Cam 1 · 13"]
+    assert [c["label"] for c in d["cams"]] == ["Cam 1", "Cam 2"]                   # one cam per cam number
+    assert [m["key"] for m in d["cams"][0]["members"]] == ["17408304:1", "17889013:1"]
     assert d["paper_trail"][0]["what"] == "Grouped 17408304 + 17889013 into one report location"
     d = client.patch(f"/speed/locations/{group}/cams/17408304:1", json={"corner": "NE"}).json()
-    assert [c["corner"] for c in d["cams"]] == ["NE", None, "NE"]                  # linked: cam 1 on both sitenumbers
+    assert [c["corner"] for c in d["cams"]] == ["NE", None]
+    assert [m["corner"] for m in d["cams"][0]["members"]] == ["NE", "NE"]          # cam 1 on both sitenumbers
     assert d["paper_trail"][0]["what"] == "Cam 1 corner set to NE (all sitenumbers)"
     out = client.post(f"/speed/locations/{group}/ungroup").json()
     assert len(out["location_ids"]) == 2 and [r["code"] for r in out["tab"]["rows"]] == ["04", "13"]

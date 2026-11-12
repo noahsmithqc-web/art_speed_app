@@ -124,7 +124,7 @@ def test_split_by_day_and_by_time_use_the_slice_filter(conn):
     assert [r["code"] for r in loader.tab(conn)["rows"]] == ["13", "13 10-06 06–10", "13 10-07"]
 
 
-def test_grouped_location_labels_cams_by_sitecode(conn):
+def test_grouped_location_has_one_cam_per_cam_number(conn):
     helpers.add_site(conn, 17408301, {1: helpers.event_rows("NB", [20, 21])}, make_location=False)
     helpers.add_site(conn, 17408302, {1: helpers.event_rows("NB", [30]), 2: helpers.event_rows("SB", [31])},
                      make_location=False)
@@ -132,8 +132,10 @@ def test_grouped_location_labels_cams_by_sitecode(conn):
         group = store.create_location(conn, [{"sitenumber": 17408301}, {"sitenumber": 17408302}])
     drawer = loader.drawer(conn, group)
     assert drawer["location"]["code"] == "01+02" and drawer["location"]["is_grouped"]
-    assert [c["label"] for c in drawer["cams"]] == ["Cam 1 · 01", "Cam 1 · 02", "Cam 2 · 02"]
-    assert drawer["status"]["missing"][0] == "Corners needed for every live cam (Cam 1 · 01, Cam 1 · 02, Cam 2 · 02)"
+    assert [(c["key"], c["label"]) for c in drawer["cams"]] == [("17408301:1", "Cam 1"), ("17408302:2", "Cam 2")]
+    assert [m["label"] for m in drawer["cams"][0]["members"]] == ["Cam 1 · 01", "Cam 1 · 02"]
+    assert drawer["cams"][0]["directions"]["NB"]["n"] == 3                  # both sitenumbers' rows
+    assert drawer["status"]["missing"][0] == "Corners needed for every live cam (Cam 1, Cam 2)"
     assert contract.check_drawer(drawer) == []
 
 

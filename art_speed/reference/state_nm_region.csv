@@ -1,0 +1,52 @@
+state_name,state,nm_region,nm_region_display
+Alaska,AK,west,West
+Alabama,AL,southeast,Southeast
+Arkansas,AR,central_south,Central (South)
+Arizona,AZ,west,West
+California,CA,west,West
+Colorado,CO,central_north,Central (North)
+Connecticut,CT,midatlantic_northeast,Mid-Atlantic / Northeast
+"Washington, DC",DC,midatlantic_northeast,Mid-Atlantic / Northeast
+Delaware,DE,midatlantic_northeast,Mid-Atlantic / Northeast
+Florida,FL,southeast,Southeast
+Georgia,GA,southeast,Southeast
+Hawaii,HI,west,West
+Iowa,IA,central_north,Central (North)
+Idaho,ID,west,West
+Illinois,IL,central_north,Central (North)
+Indiana,IN,central_north,Central (North)
+Kansas,KS,central_north,Central (North)
+Kentucky,KY,central_north,Central (North)
+Louisiana,LA,central_south,Central (South)
+Massachusetts,MA,midatlantic_northeast,Mid-Atlantic / Northeast
+Maryland,MD,midatlantic_northeast,Mid-Atlantic / Northeast
+Maine,ME,midatlantic_northeast,Mid-Atlantic / Northeast
+Michigan,MI,central_north,Central (North)
+Minnesota,MN,central_north,Central (North)
+Missouri,MO,central_north,Central (North)
+Mississippi,MS,southeast,Southeast
+Montana,MT,central_north,Central (North)
+North Carolina,NC,southeast,Southeast
+North Dakota,ND,central_north,Central (North)
+Nebraska,NE,central_north,Central (North)
+New Hampshire,NH,midatlantic_northeast,Mid-Atlantic / Northeast
+New Jersey,NJ,midatlantic_northeast,Mid-Atlantic / Northeast
+New Mexico,NM,central_south,Central (South)
+Nevada,NV,west,West
+New York,NY,midatlantic_northeast,Mid-Atlantic / Northeast
+Ohio,OH,central_north,Central (North)
+Oklahoma,OK,central_south,Central (South)
+Oregon,OR,west,West
+Pennsylvania,PA,midatlantic_northeast,Mid-Atlantic / Northeast
+Rhode Island,RI,midatlantic_northeast,Mid-Atlantic / Northeast
+South Carolina,SC,southeast,Southeast
+South Dakota,SD,central_north,Central (North)
+Tennessee,TN,southeast,Southeast
+Texas,TX,central_south,Central (South)
+Utah,UT,west,West
+Virginia,VA,midatlantic_northeast,Mid-Atlantic / Northeast
+Vermont,VT,midatlantic_northeast,Mid-Atlantic / Northeast
+Washington,WA,west,West
+Wisconsin,WI,central_north,Central (North)
+West Virginia,WV,central_north,Central (North)
+Wyoming,WY,central_north,Central (North)

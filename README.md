@@ -20,10 +20,36 @@ py -3.13 -m venv .venv
 .venv/Scripts/python.exe -m pip install -r requirements-dev.txt
 ```
 
+## Start the tool
+
+Double-click `run_speed.bat` (or `.venv/Scripts/python.exe -m art_speed serve`). A black window
+opens - that window is the app - and a browser tab opens on `http://127.0.0.1:8766/`. Close the
+black window to stop the tool.
+
+- **Home** has "New project" (A.R.T.'s wizard: type the project number, QC Hub fills name,
+  client and state, and a subfolder named with the number is created in the default project
+  folder - an A.R.T. project folder, so A.R.T. opens it too), the recent projects, and "Open
+  other project…". One project is open at a time. An A.R.T. project folder opens as it is; any
+  other folder asks for the six-digit project number once and remembers it with the recent card.
+- **Settings** (on Home) holds the default project folder and the tool's own QC Hub connection
+  (host, port, database, username, password - the password goes to Windows Credential Manager
+  under "Speed tool QCH", checked against QC Hub before it is stored). The tool never reads
+  A.R.T.'s login.
+- **Speed** is the tab of the locked mockup: Add speed data, the locations table, the drawer
+  (Setup, Overview, Decisions, Detail, Paper trail), group / split, Generate report.
+
+In a grouped location (several sitenumbers in one report) the same cam number on every
+sitenumber is one camera: one row in Setup, the Overview matrix and Decisions, with its
+statistics and report rows over the whole count (`docs/CONTRACT.md`, "Cam groups").
+
+The tool keeps its own files (settings, recent list, `speed.log`) in `%LOCALAPPDATA%\SpeedTool`;
+set `SPEED_HOME` to put them somewhere else.
+
 ## Everyday use
 
 | What | Command |
 |---|---|
+| Start the tool (app + browser tab) | `.venv/Scripts/python.exe -m art_speed serve [--project <project folder>] [--number 174083] [--no-browser]` |
 | Run the automated tests | `.venv/Scripts/python.exe -m pytest` |
 | Tool version | `.venv/Scripts/python.exe -m art_speed version` |
 | Read a folder of speed CSVs and report, writing nothing | `.venv/Scripts/python.exe -m art_speed scan <csv folder>` |
@@ -31,7 +57,7 @@ py -3.13 -m venv .venv
 | Engine output for a folder of exports, as the mockup's JSON | `.venv/Scripts/python.exe -m art_speed dump out.json --csv <csv folder> --js` |
 | The same for a project that already has speed data | `.venv/Scripts/python.exe -m art_speed dump out.json --project <project folder> --js` |
 | Generate the report workbooks of every Ready location | `.venv/Scripts/python.exe -m art_speed report --project <project folder> [--number 174083] [--ids 3 4]` |
-| Run the API on its own (development; the shell is SP-6) | `.venv/Scripts/python.exe -m art_speed serve --project <project folder> [--number 174083]` |
+| Run the bare API of one project (development) | `.venv/Scripts/python.exe -m art_speed api --project <project folder> [--number 174083]` |
 | ... with the mockup showing the project's live data, read-only | add `--mockup "../claude/11 - intersection speed/ui mockup"`, then open `http://127.0.0.1:8766/mockup/` |
 | What QC Hub knows about a sitenumber (stores nothing) | `.venv/Scripts/python.exe -m art_speed qch-site 17408304 17408305` |
 
@@ -71,11 +97,18 @@ send. If Excel can't be run, the answer says so and the workbooks need opening a
 | `art_speed/parity.py`, `docs/PARITY.md` | The delivered workbooks as parity targets and the documented deviations |
 | `art_speed/edits.py` | Every change a user makes: validates, writes, adds the paper-trail line (SP-4) |
 | `art_speed/api.py` | The FastAPI router (`/speed/...`); mounted by the shell now and by A.R.T. at the merge |
-| `art_speed/server.py` | A bare app around the router for development and tests |
+| `art_speed/server.py` | A bare app around the router for development and tests (`art_speed api`) |
+| `art_speed/main.py` | The app the tool runs (SP-6): the shell's `/api/...` routes, the `/speed` router, the page |
+| `art_speed/session.py` | The one open project |
+| `art_speed/create_project/wizard.py`, `manifest.py`, `qch/lookup.py`, `qch/regions.py` | New project: A.R.T.'s wizard, project file and project lookup, copied |
+| `art_speed/appstate/`, `paths.py`, `jsonfile.py`, `dialogs.py` | Settings, the recent list, where the tool keeps its files, the native folder picker |
+| `art_speed/web/` | The page: `index.html`, `shell.js` (rail, Home, Settings, pop-ups), `speed.js` (the speed tab and drawer), `boot.js` |
+| `art_speed/web/shell.css`, `speed.css` | A.R.T.'s stylesheet and the mockup's, each under its own scope; written by `tools/build_web_css.py` |
+| `run_speed.bat` | Starts the tool from source |
 | `art_speed/report.py` | The report writer: fills the delivered template, header fields and source-cam rows only (SP-5) |
-| `art_speed/excel.py` | Has Excel calculate and save the generated workbooks so they are ready to send |
+| `art_speed/excel.py` | Has Excel calculate each generated workbook, turn the header (Summary C2:H13, direction sheets A1:J5) into values, and save it |
 | `art_speed/reference/report_templates/speed_report_template.xlsx` | The shipped template (made by `tools/build_report_template.py` from the design folder's) |
-| `art_speed/qch/` | QC Hub connection, login (A.R.T.'s, read-only) and the per-sitenumber lookup |
+| `art_speed/qch/` | QC Hub connection, the tool's own login (Settings) and the per-sitenumber lookup |
 | `art_speed/project.py` | Recognises an A.R.T. project folder (read-only) or takes a typed project number |
 | `COPIED_FROM_ART.md` | Every file copied or adapted from `claude_app`, to be dropped at the merge |
 

@@ -16,10 +16,27 @@ QCH_PULL_TIMEOUT_S = 30      # each site lookup query
 # Longest full path the tool will write (Windows' classic limit is 260).
 MAX_PATH_CHARS = 240
 
-# Where A.R.T. keeps its settings. The speed tool only ever READS settings.json there, to reuse
-# the QC Hub connection the user already set up in A.R.T. (host, port, user, database; the
-# password is in Windows Credential Manager under A.R.T.'s entry). It writes nothing there.
-ART_APP_DIR_NAME = "ART"
-ENV_ART_HOME = "ART_HOME"                     # A.R.T.'s development override of that folder
-ENV_QCH_CREDENTIALS = "ART_QCH_CREDENTIALS"   # A.R.T.'s development credentials file
-ART_KEYRING_SERVICE = "A.R.T. QCH"            # A.R.T.'s entry in Windows Credential Manager
+# Folder name under %LOCALAPPDATA% that holds the tool's own settings, recent projects list and
+# logs. Its own folder: nothing is shared with A.R.T.'s (%LOCALAPPDATA%\ART).
+APP_DIR_NAME = "SpeedTool"
+
+# Local web server. 127.0.0.1 only: never reachable from other machines. A.R.T. uses 8765.
+HOST = "127.0.0.1"
+PORT = 8766
+
+OPEN_PROJECT_CHECK_S = 1.0   # is the open project's folder still there? Runs on every page load.
+RECENT_LIMIT = 10            # cards on the Home screen
+
+# Log file rotation: 5 files of 1 MB each.
+LOG_MAX_BYTES = 1_000_000
+LOG_BACKUPS = 5
+
+# Development-only overrides (never set on teammates' machines).
+ENV_HOME = "SPEED_HOME"                         # app-state folder instead of %LOCALAPPDATA%\SpeedTool
+ENV_QCH_CREDENTIALS = "SPEED_QCH_CREDENTIALS"   # a development credentials file (key=value lines)
+
+# A.R.T.'s data types, as its project file (######.json) names them. The speed tool writes that
+# file only when it creates a new project (the copied wizard), and never stamps a data type.
+DATASET_NEAR_MISS = "near miss"
+DATASET_TURN_MOVEMENT = "turn movement"
+DATASET_TYPES = (DATASET_NEAR_MISS, DATASET_TURN_MOVEMENT)

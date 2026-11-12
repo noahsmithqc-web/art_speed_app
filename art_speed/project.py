@@ -5,8 +5,9 @@ six-digit project number holding the project file ######.json - the number, name
 client come from that file. Any other folder works too: the project number is typed in and the
 folder's name stands in for the project name.
 
-The project file is only ever read here. The speed tool never writes ######.json, nm_######.db
-or qch_######.db.
+The project file is only ever read here. The one place the speed tool writes a ######.json is
+New project (create_project/wizard.py, A.R.T.'s wizard), which makes a new A.R.T. project folder;
+an existing project file is never changed. nm_######.db and qch_######.db are never written.
 """
 
 from __future__ import annotations

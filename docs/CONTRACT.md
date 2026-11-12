@@ -43,6 +43,30 @@ and `contract.check_drawer()` / `check_tab()` / `check_fixtures()` hold any payl
 | `warnings[]` | `{code, text}`; `over_half_masked` also has `cam` and `can_acknowledge` |
 | `paper_trail[]` | newest first: `when`, `what`, `who`, `scope` (location / site / cam; site and cam entries carry `sitenumber` and show in every location built on it). The page prints `what` then `when   [by who]` |
 
+## Cam groups (grouped locations)
+
+In a location that groups several sitenumbers, the same cam number on every sitenumber is one
+camera: a **cam group**. `cams[]` then has one entry per cam number, not one per file:
+
+- `key` is the group's first member's `sitenumber:cam` (slice order); `label` is `Cam 1`.
+  Every stat, histogram, suggestion and hourly cell of that entry is over all of its sitenumbers,
+  each inside its own slices. `events`, `file` and `masked_hours` are the members' together;
+  `corner` is the members' corner when they agree, else null.
+- The entry also carries `members[]` (one per file: `key`, `sitenumber`, `cam`, `label`
+  `Cam 1 · 28`, `corner`, `file`, `csv_form`, `events`, `events_in_location`, `dead`,
+  `masked_hours[]`, `mask_acknowledged`) and `on_sitenumbers` `{set, of}`. A one-sitenumber
+  location's cams have neither field.
+- `directions.X.source_cam` is a group key. The database keeps the cam number with one member's
+  sitenumber; any member means the group. A PATCH naming any member (`/cams/{key}`, `source_cam`)
+  acts on the group: a corner goes to every member, a masked hour to the sitenumber whose file has it.
+- `bins` stays per file (member keys). The report sheet and a bin export hold the group's rows
+  from every sitenumber, by date and time.
+- Warnings: `partial_cam` (a cam number that is not on every sitenumber) and `weak_member` (a
+  file with under half the rows of its sitenumber's busiest cam). A group is dead only when every
+  member is; a dead file inside a live group is named in `dead_cam`.
+- `corners_linked` is no longer read: a grouped location's corners are always shared. Cameras
+  that moved between sitenumbers are reported as separate locations instead.
+
 ## Definitions (plan section 6, confirmed SP-Q12)
 
 Order: slice window → time masks (masked date-hours of the cam) → zeros out → lower mask
