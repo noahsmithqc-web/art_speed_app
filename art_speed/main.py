@@ -35,7 +35,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from starlette.concurrency import run_in_threadpool
 
-from art_speed import api, config, dialogs, fsguard, jsonfile, paths, project as project_mod, session
+from art_speed import api, config, dialogs, fsguard, jsonfile, notes, paths, project as project_mod, session
 from art_speed.appstate import recent, settings
 from art_speed.log import get_logger, setup_logging
 from art_speed.create_project import wizard
@@ -94,6 +94,10 @@ class CheckIn(BaseModel):
 class CreateIn(BaseModel):
     number: str
     folder: Optional[str] = None
+
+
+class NotesIn(BaseModel):
+    html: Optional[str] = None
 
 
 class PickIn(BaseModel):
@@ -305,6 +309,29 @@ def create_app() -> FastAPI:
         except project_mod.ProjectError as exc:
             return _fail("open_refused", str(exc))
         return _ok(project=_project(opened), warnings=list(result.warnings), in_recent=result.in_recent)
+
+    # -------------------------------------------------------------- internal notes (0.1.1)
+
+    @app.get("/api/project/notes")
+    def get_notes() -> dict:
+        """The Speed tab's internal notes box. No file yet is an empty box."""
+        opened = session.peek()
+        if opened is None:
+            return _fail("no_project", str(session.NoProjectOpen()))
+        return _ok(notes=notes.read(opened.folder, opened.number).to_dict())
+
+    @app.put("/api/project/notes")
+    def save_notes(body: NotesIn) -> dict:
+        """Save, and a tick made while the box is not being edited. What comes back is what
+        was stored, which is what the page shows from then on."""
+        opened = session.peek()
+        if opened is None:
+            return _fail("no_project", str(session.NoProjectOpen()))
+        try:
+            saved = notes.write(opened.folder, body.html, opened.number)
+        except notes.NotesError as exc:
+            return _fail("not_saved", str(exc))
+        return _ok(notes=saved.to_dict())
 
     @app.post("/api/project/close")
     def close_project() -> dict:

@@ -247,7 +247,7 @@ def cmd_selfcheck() -> int:
     print(f"app files   {paths.app_home()}")
     missing = 0
     files = [paths.resource_path("web", name) for name in
-             ("index.html", "shell.js", "wizard.js", "speed.js", "boot.js", "shell.css", "speed.css",
+             ("index.html", "shell.js", "wizard.js", "speed.js", "notes.js", "boot.js", "shell.css", "speed.css",
               "assets/qc_logo_white.png")]
     files += [paths.resource_path("reference", "state_nm_region.csv"), report.TEMPLATE]
     for path in files:

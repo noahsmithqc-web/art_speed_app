@@ -114,6 +114,7 @@ send. If Excel can't be run, the answer says so and the workbooks need opening a
 | `art_speed/server.py` | A bare app around the router for development and tests (`art_speed api`) |
 | `art_speed/main.py` | The app the tool runs (SP-6): the shell's `/api/...` routes, the `/speed` router, the page |
 | `art_speed/session.py` | The one open project |
+| `art_speed/notes.py`, `web/notes.js` | Internal notes: the box under the locations table, stored in `######_notes.json` in the project folder; never read by the report writer |
 | `art_speed/create_project/wizard.py`, `manifest.py`, `qch/lookup.py`, `qch/regions.py` | New project: A.R.T.'s wizard, project file and project lookup, copied |
 | `art_speed/appstate/`, `paths.py`, `jsonfile.py`, `dialogs.py` | Settings, the recent list, where the tool keeps its files, the native folder picker |
 | `art_speed/web/` | The page: `index.html`, `shell.js` (rail, Home, Settings, pop-ups), `speed.js` (the speed tab and drawer), `boot.js` |

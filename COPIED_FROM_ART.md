@@ -48,6 +48,9 @@ Source commit for these: `claude_app` as it stood on 2026-11-12 (read only; noth
 | `art_speed/manifest.py` | `art_app/project/manifest.py` | Copied | Lives at the package root (`art_speed/project.py` already has that name) |
 | `art_speed/qch/lookup.py`, `qch/regions.py`, `reference/state_nm_region.csv` | same paths under `art_app` | Copied | — |
 | `art_speed/web/wizard.js` | `art_app/web/wizard.js` | Copied | `S` → `APP`; lands on the speed tab; "filled in later from Summary" dropped (no Summary here) |
+| `art_speed/notes.py` | `art_app/project/notes.py` (1.2.13) | Copied (0.1.1) | The file is named with the open project's number (passed in), because the speed tool also opens folders that are not named with it |
+| `art_speed/web/notes.js` | the internal-notes part of `art_app/web/summary.js` | Copied (0.1.1) | `S` → `APP`; drawn under the locations table by its own `renderNotes`; hint says "workbook or any export" |
+| `tests/test_notes.py` | `tests/test_notes.py` | Copied (0.1.1) | One test added for the file name |
 | `art_speed/web/shell.css` | `art_app/web/styles.css` | Generated | The whole sheet, every rule scoped under `.as` by `tools/build_web_css.py` so it cannot touch the speed tab |
 | `art_speed/web/assets/qc_logo_white.png` | `art_app/web/assets/qc_logo_white.png` | Copied | — |
 | `run_speed.bat` | `run_art.bat` | Adapted | Starts `art_speed serve` |

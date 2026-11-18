@@ -17,6 +17,10 @@ body{background:#f6f7f9;overflow-y:scroll}
 .frame{display:flex;flex-direction:row;align-items:flex-start;min-height:100vh}
 #railwrap{flex:0 0 200px;position:sticky;top:0;height:100vh;z-index:20}
 #homewrap,#speedwrap{flex:1;min-width:0;min-height:100vh}
+/* the Speed tab is the mockup's look; the internal notes under it are A.R.T.'s box, on the same canvas */
+#speedwrap{background:#E9EDF1}
+#noteswrap{background:none;padding:0 26px 60px}
+#noteswrap .inotes{margin-top:4px}
 #speedfix{position:relative;z-index:30;background:none}
 /* the mockup's two pop-ups have a footer row it never styled */
 .sv .mfoot{display:flex;gap:8px;align-items:center;padding:12px 20px 16px;border-top:1px solid var(--line2)}
@@ -29,7 +33,10 @@ body{background:#f6f7f9;overflow-y:scroll}
 <div class="frame">
   <div class="as" id="railwrap"><nav class="siderail" id="tabbar"></nav></div>
   <div class="as" id="homewrap"><main id="main" class="full"></main></div>
-  <div class="sv" id="speedwrap" hidden><main class="tab" id="tab"></main></div>
+  <div id="speedwrap" hidden>
+    <div class="sv"><main class="tab" id="tab"></main></div>
+    <div class="as" id="noteswrap"></div>
+  </div>
 </div>
 <div class="sv" id="speedfix">
   <div class="scrim" id="scrim" onclick="closeDrawer()"></div>
@@ -41,10 +48,11 @@ body{background:#f6f7f9;overflow-y:scroll}
   <div class="veil" id="veil" hidden><div class="modal" id="modal"></div></div>
   <div class="toast" id="toast" hidden></div>
 </div>
-<!-- shell.js: the rail, Home, Settings, pop-ups. wizard.js: New project. speed.js: the speed tab. boot.js starts it. -->
+<!-- shell.js: the rail, Home, Settings, pop-ups. wizard.js: New project. speed.js: the speed tab. notes.js: internal notes. boot.js starts it. -->
 <script src="shell.js"></script>
 <script src="wizard.js"></script>
 <script src="speed.js"></script>
+<script src="notes.js"></script>
 <script src="boot.js"></script>
 </body>
 </html>

@@ -50,7 +50,7 @@ def test_the_page_carries_no_mockup_data_and_no_low_n_rule():
                  "speedSVG", "decBody", "chart", "detBody", "trailBody", "openM", "closeM"):
         assert f"function {name}(" in js, name
     page = (WEB / "index.html").read_text(encoding="utf-8")
-    assert page.index("shell.js") < page.index("wizard.js") < page.index("speed.js") < page.index("boot.js")
+    assert page.index("shell.js") < page.index("wizard.js") < page.index("speed.js") < page.index("notes.js") < page.index("boot.js")
     assert "function startWizard(" in (WEB / "wizard.js").read_text(encoding="utf-8")
 
 

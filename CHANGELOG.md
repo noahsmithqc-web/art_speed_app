@@ -1,5 +1,12 @@
 # Changelog - Intersection Speed tool
 
+## 0.1.1 (2026-11-18)
+
+- Internal notes: a box under the locations table on the Speed tab for notes the team keeps
+  about a project (the same box as A.R.T.'s). Bold, italic, underline, text colours, highlights
+  and tick boxes; Edit / Save / Cancel; a tick can be made without Edit. Never printed on a
+  report. Stored in `######_notes.json` in the project folder.
+
 ## 0.1.0 (2026-11-12)
 
 First packaged build.

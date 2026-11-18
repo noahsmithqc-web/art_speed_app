@@ -265,6 +265,8 @@ async function stepWrite() {
 
   APP.wiz = null;
   APP.project = body.project;
+  APP.inEdit = null;
+  APP.inotes = null;
   closeModal();
   APP.tab = "speed";
   speedReset();

@@ -214,3 +214,25 @@ def test_the_file_picker_route_answers_like_the_folder_picker(monkeypatch):
     assert out["ok"] and out["files"] == ["C:\\x\\17408301_cam-1_speed.csv"] and out["cancelled"] is False
     monkeypatch.setattr(dialogs, "pick_files", lambda title, start, types: None)
     assert client.post("/api/dialog/files", json={}).json() == {"ok": True, "files": [], "cancelled": True}
+
+
+def test_internal_notes_start_empty_save_cleaned_and_touch_nothing_else(tmp_path):
+    """0.1.1: the Speed tab's notes box. What comes back is what was stored, cleaned."""
+    from fastapi.testclient import TestClient
+
+    from art_speed import main
+    client = TestClient(main.create_app())
+    assert client.get("/api/project/notes").json()["error"]["kind"] == "no_project"
+    assert client.put("/api/project/notes", json={"html": "x"}).json()["error"]["kind"] == "no_project"
+    folder = tmp_path / "a speed job"
+    folder.mkdir()
+    assert client.post("/api/projects/open", json={"folder": str(folder), "project_number": "174083"}).json()["ok"]
+    assert client.get("/api/project/notes").json() == {"ok": True, "notes": {"html": "", "saved_utc": ""}}
+
+    sent = '<div onclick="x"><b>Refilm</b> site 04<script>x</script></div>'
+    body = client.put("/api/project/notes", json={"html": sent}).json()
+    assert body["ok"] and body["notes"]["html"] == "<div><b>Refilm</b> site 04</div>" and body["notes"]["saved_utc"]
+    assert client.get("/api/project/notes").json()["notes"] == body["notes"]
+    assert sorted(p.name for p in folder.iterdir()) == ["174083_notes.json"]       # its own file, nothing else made
+    too_long = client.put("/api/project/notes", json={"html": "a" * 200_001})
+    assert too_long.status_code == 200 and too_long.json()["error"]["kind"] == "not_saved"

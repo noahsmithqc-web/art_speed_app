@@ -26,6 +26,8 @@ const APP = {
   status: {},          // card id -> its pill, filled in afterwards
   notes: [],           // repaired-file lines, dismissible
   wiz: null,           // New project's answers while it is open (wizard.js)
+  inotes: null,        // the internal notes as stored: {number, html, saved_utc} (notes.js)
+  inEdit: null,        // the notes box while it is open: {number, html, was}
 };
 
 const esc = (s) => String(s == null ? "" : s)
@@ -193,6 +195,28 @@ function confirmModal(title, message, yesLabel, onYes) {
     </div>`, (act) => { closeModal(); if (act === "yes") onYes(); });
 }
 
+/* ------------------------------------------------------------------ leaving a project
+ *
+ * Home does not ask: it is a tab switch, the project stays open and a notes draft is kept. New
+ * project, Open other project and a recent card do ask, and only while the internal notes box
+ * is open with something typed into it (A.R.T.'s rule).
+ */
+
+function leavingProject(go) {
+  if (!APP.project || !notesAreDirty()) return go();
+  showModal("fail", `
+    <div class="ahead"><div class="alerticon warn">!</div><div>
+      <h3>Are you sure you want to leave ${esc(APP.project.project_number)}?</h3>
+      <p>The internal notes you have typed have not been saved.</p></div></div>
+    <div class="actions">
+      <button data-act="stay">Cancel</button><div class="sp"></div>
+      <button class="primary" data-act="leave">Leave</button>
+    </div>`, (act) => {
+      closeModal();
+      if (act === "leave") { APP.inEdit = null; go(); }
+    });
+}
+
 /* ------------------------------------------------------------------ the rail */
 
 function renderTabs() {
@@ -229,6 +253,7 @@ function render() {
     main.appendChild(screenHome());
   } else {
     speedShow();
+    renderNotes();
   }
 }
 
@@ -366,8 +391,8 @@ function screenHome() {
       return render();
     }
     const act = e.target.dataset.act;
-    if (act === "new") return startWizard();
-    if (act === "open") return openOtherProject();
+    if (act === "new") return leavingProject(startWizard);
+    if (act === "open") return leavingProject(openOtherProject);
     if (act === "settings") return showSettings();
   });
   return screen;
@@ -399,7 +424,7 @@ function openCard(cardId) {
   const card = ((APP.recent && APP.recent.projects) || []).find(c => c.id === cardId);
   if (!card) return;
   if (APP.project && APP.project.folder === card.folder) return goTab("speed");   // already open
-  openFolder(card.folder, card.project_number);
+  leavingProject(() => openFolder(card.folder, card.project_number));
 }
 
 /** Open a project folder and land on the speed tab. Used by a card, by Open project folder and
@@ -419,6 +444,8 @@ async function openFolder(folder, number) {
   }
   closeModal();
   APP.project = body.project;
+  APP.inEdit = null;
+  APP.inotes = null;             // read again for the project just opened
   APP.tab = "speed";
   speedReset();
   render();
