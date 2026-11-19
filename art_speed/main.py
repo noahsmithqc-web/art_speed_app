@@ -195,7 +195,7 @@ def create_app() -> FastAPI:
         try:
             chosen = await run_in_threadpool(
                 dialogs.pick_files, body.title or "Select files", body.start,
-                (("Speed CSV", "*_speed.csv"), ("CSV", "*.csv"), ("All files", "*.*")))
+                (("Speed CSV", "*_speed*.csv"), ("CSV", "*.csv"), ("All files", "*.*")))
         except dialogs.DialogBusy as exc:
             return _fail("dialog_busy", str(exc))
         except dialogs.DialogUnavailable as exc:

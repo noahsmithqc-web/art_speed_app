@@ -275,3 +275,31 @@ def test_the_real_folder_imports(samples, proj):
     got = {s.sitenumber: (s.cams, s.events) for s in report.sites}
     assert got[17408305] == ([1, 2, 3, 4, 5], 67712) and got[17650202] == ([1, 2], 6038)
     assert "Cam 1 dead (100 % zero speeds)" in report.sites[3].warnings
+
+
+def test_gate_version_names_import_and_two_versions_of_one_cam_are_refused(tmp_path, proj):
+    """0.1.2: <sitenumber>_cam-<N>_speed_<gate version>.csv. The gate version is kept in the file
+    name only; two gate versions of the same cam are never imported together."""
+    folder = tmp_path / "gates"
+    folder.mkdir()
+    rows = helpers.speed_rows("NB", [20, 25, 31])
+    helpers.write_csv(folder, 17790401, 1, rows).rename(folder / "17790401_cam-1_speed_speed-ns-edit.csv")
+    helpers.write_csv(folder, 17790401, 2, rows).rename(folder / "17790401_cam-2_speed_sp.csv")
+    helpers.write_csv(folder, 17790401, 3, rows)                                   # an old name beside them
+    report = run.import_folder(proj, folder, use_qch=False)
+    assert report.status == run.IMPORTED and report.unmatched == []
+    assert report.sites[0].files == ["17790401_cam-1_speed_speed-ns-edit.csv", "17790401_cam-2_speed_sp.csv",
+                                     "17790401_cam-3_speed.csv"]
+    conn = db.open_db(proj.folder, proj.number)
+    try:
+        stored = [r[0] for r in conn.execute("SELECT file_name FROM speed_cam ORDER BY cam")]
+    finally:
+        conn.close()
+    assert stored == report.sites[0].files                                         # what the camera rows show
+
+    helpers.write_csv(folder, 17790401, 1, rows).rename(folder / "17790401_cam-1_speed_speed-ns.csv")
+    twice = run.import_folder(proj, folder, use_qch=False)
+    assert twice.status == run.REFUSED
+    assert "17790401_cam-1_speed_speed-ns-edit.csv" in twice.message and "17790401_cam-1_speed_speed-ns.csv" in twice.message
+    picked = run.import_folder(proj, folder, use_qch=False, only=["17790401_cam-1_speed_speed-ns.csv"])
+    assert picked.status == run.IMPORTED and picked.sites[0].files == ["17790401_cam-1_speed_speed-ns.csv"]

@@ -1,7 +1,7 @@
 # Intersection Speed tool (`art_speed`)
 
 Standalone tool for Quality Counts intersection speed studies: imports the Datalens speed CSVs
-(`<sitenumber>_cam-<N>_speed.csv`), helps pick the source camera per approach, and fills the
+(`<sitenumber>_cam-<N>_speed.csv`, or since 0.1.2 `<sitenumber>_cam-<N>_speed_<gate version>.csv`), helps pick the source camera per approach, and fills the
 delivered Excel report. Built as a Python package (`art_speed`: engine, storage, FastAPI router)
 so it can be folded into A.R.T. later without moving any data (build plan 1.4, SP-8).
 

@@ -143,3 +143,22 @@ def test_the_real_weeklong_export_parses(samples):
     assert (p.form, p.events, p.header_start_date, p.header_start_time, p.header_duration_hr) == (
         parse.RAW, 269187, "2026-10-06", "00:00:00", 0.0)
     assert p.duplicate_lines == 0 or p.duplicate_lines > 0          # counted, never dropped
+
+
+def test_names_with_the_gate_version_are_speed_files(tmp_path):
+    """0.1.2: Datalens appends the gate version after _speed. Only the name changed."""
+    for name, want in (("17790401_cam-1_speed_speed-ns-edit.csv", (17790401, 1)),
+                       ("17790401_cam-3_speed_speed-ns-edits.csv", (17790401, 3)),
+                       ("17790402_cam-1_speed_speed-ns.csv", (17790402, 1)),
+                       ("17790402_cam-3_speed_sp.csv", (17790402, 3)),
+                       ("17790402_CAM-12_SPEED_v2 final.CSV", (17790402, 12)),
+                       ("17790402_cam-3_speed.csv", (17790402, 3))):           # the old name still works
+        assert parse.match_name(name) == want, name
+    for name in ("17790402_cam-3_speeds.csv", "17790402_cam-3_speed-ns.csv", "17790402_cam-3_speed_.csv",
+                 "17790402_cam-3_speed_sp.xlsx", "17790402_cam-0_speed_sp.csv", "1779040_cam-3_speed_sp.csv"):
+        assert parse.match_name(name) is None, name
+    plain = helpers.write_csv(tmp_path, 17790402, 3, helpers.speed_rows("NB", [20, 25, 0]))
+    renamed = plain.rename(tmp_path / "17790402_cam-3_speed_sp.csv")
+    parsed = parse.parse(renamed)
+    assert (parsed.name_sitenumber, parsed.cam, parsed.events) == (17790402, 3, 3)
+    assert parsed.file_name == "17790402_cam-3_speed_sp.csv"               # the gate version stays visible

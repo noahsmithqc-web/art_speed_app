@@ -188,7 +188,7 @@ def import_folder(project: project_mod.Project, folder: str | os.PathLike, *,
                           refused_files=[{"file": f.file_name, "error": f.error} for f in found.refused])
     if only is not None:
         # Picked by hand: a file that is not a speed export is said, not passed over in silence.
-        report.refused_files += [{"file": n, "error": f"{n} is not named <sitenumber>_cam-<N>_speed.csv."}
+        report.refused_files += [{"file": n, "error": f"{n} is not named {parse.NAME_RULE}."}
                                  for n in found.unmatched]
         report.unmatched = []
     if found.fatal:
@@ -205,7 +205,7 @@ def import_folder(project: project_mod.Project, folder: str | os.PathLike, *,
         report.status = REFUSED
         report.message = ("None of the selected files could be imported." if only is not None else
                           "No file in this folder could be imported." if found.refused else
-                          "No <sitenumber>_cam-<N>_speed.csv file in this folder.")
+                          f"No {parse.NAME_RULE} file in this folder.")
         return report
 
     numbers = sorted(found.sites)

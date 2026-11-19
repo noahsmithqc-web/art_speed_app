@@ -1,6 +1,9 @@
 """The Datalens speed CSV, read strictly (plan section 5, SP-2).
 
 File name: <sitenumber>_cam-<N>_speed.csv - an 8 or 9 digit QC Hub sitenumber and a cam number.
+Since 0.1.2 also <sitenumber>_cam-<N>_speed_<gate version>.csv: Datalens now appends the gate
+version (17790401_cam-1_speed_speed-ns-edit.csv). Only the name changed; the gate version is
+not read for anything - it stays visible because the file name is stored and shown.
 
 Two forms are accepted, and the form is recorded per file:
 
@@ -43,7 +46,8 @@ from datetime import date
 from pathlib import Path
 
 RAW, POST_MACRO = "raw", "post-macro"
-FILE_NAME = re.compile(r"^(\d{8,9})_cam-(\d+)_speed\.csv$", re.IGNORECASE)
+FILE_NAME = re.compile(r"^(\d{8,9})_cam-(\d+)_speed(?:_([^\\/]+))?\.csv$", re.IGNORECASE)
+NAME_RULE = "<sitenumber>_cam-<N>_speed.csv or <sitenumber>_cam-<N>_speed_<gate version>.csv"
 HEADER_LABELS = ("Sitecode:", "Start date:", "Start time:", "Duration (hrs):")
 COLUMNS = ("Date", "Time", "Direction", "Class", "Speed (In MPH)", "Track ID")
 DIRECTIONS = ("NB", "SB", "EB", "WB")
@@ -103,7 +107,8 @@ class ParsedFile:
 
 
 def match_name(file_name: str) -> tuple[int, int] | None:
-    """(sitenumber, cam) from '<sitenumber>_cam-<N>_speed.csv', or None when it isn't one."""
+    """(sitenumber, cam) from '<sitenumber>_cam-<N>_speed.csv' (with or without a gate version
+    after _speed), or None when it isn't one."""
     m = FILE_NAME.match(file_name)
     if not m or int(m[2]) < 1:
         return None
@@ -150,7 +155,7 @@ def parse(path: str | Path) -> ParsedFile:
     name = path.name
     matched = match_name(name)
     if matched is None:
-        raise ParseError(name, "the file name is not <sitenumber>_cam-<N>_speed.csv")
+        raise ParseError(name, f"the file name is not {NAME_RULE}")
     sitenumber, cam = matched
     try:
         data = path.read_bytes()

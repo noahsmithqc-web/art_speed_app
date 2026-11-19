@@ -1,5 +1,13 @@
 # Changelog - Intersection Speed tool
 
+## 0.1.2 (2026-11-18)
+
+- Add speed data reads the new Datalens file names, which carry the gate version after `_speed`
+  (`17790401_cam-1_speed_speed-ns-edit.csv`). The old `_speed.csv` names still work. The gate
+  version is not used for anything; it shows wherever the file name does (camera rows in Setup,
+  the paper trail). Two files for the same sitenumber and cam are still refused, so two gate
+  versions of one cam are never imported together.
+
 ## 0.1.1 (2026-11-18)
 
 - Internal notes: a box under the locations table on the Speed tab for notes the team keeps
